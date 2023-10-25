@@ -6,29 +6,30 @@
 #include "bme280.h"
 
 
-//static void bme_spi_cs_down(void)
-//{
-//	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_RESET);
-//}
-//
-//
-//static void bme_spi_cs_up(void)
-//{
-//	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
-//}
+
+static void bme_spi_cs_down(void)
+{
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_RESET);
+}
+
+
+static void bme_spi_cs_up(void)
+{
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_SET);
+}
 
 
 
-static BME280_INTF_RET_TYPE bme_spi_read(
-		uint8_t reg_addr, uint8_t * data, uint32_t data_len, void *intf_ptr
-)
+static BME280_INTF_RET_TYPE bme_spi_read(uint8_t reg_addr, uint8_t * data, uint32_t data_len, void *intf_ptr)
 {
 	extern SPI_HandleTypeDef hspi1;
+	bme_spi_cs_down();
 
-	//bme_spi_cs_down();
 	reg_addr |= (1 << 7);
+	HAL_SPI_Transmit(&hspi1, &reg_addr, 1, HAL_MAX_DELAY);
 	HAL_SPI_Receive(&hspi1, data, data_len, HAL_MAX_DELAY);
-	//bme_spi_cs_up();
+
+	bme_spi_cs_up();
 
 	return 0;
 }
@@ -40,11 +41,11 @@ static BME280_INTF_RET_TYPE bme_spi_write(
 {
 	extern SPI_HandleTypeDef hspi1;
 
-	//bme_spi_cs_down();
+	bme_spi_cs_down();
 	reg_addr &= ~(1 << 7);
 	HAL_SPI_Transmit(&hspi1, &reg_addr, 1, HAL_MAX_DELAY);
 	HAL_SPI_Transmit(&hspi1, (uint8_t*)data, data_len, HAL_MAX_DELAY);
-	//bme_spi_cs_up();
+	bme_spi_cs_up();
 
 	return 0;
 }
@@ -170,7 +171,7 @@ int app_main(void)
 		// Чтение данные из bme280
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-		//bme280_set_sensor_mode(BME280_FORCED_MODE, &bme);
+		bme280_set_sensor_mode(BME280_FORCED_MODE, &bme);
 		HAL_Delay(10);
 
 		struct bme280_data comp_data;
