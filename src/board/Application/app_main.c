@@ -1,21 +1,29 @@
 #include <stdio.h>
 
 #include <stm32f4xx_hal.h>
-
+#include "shift_reg.h"
 #include "lsm6ds3_reg.h"
 #include "bme280.h"
 
 
 
-static void bme_spi_cs_down(void)
+static void bme_spi_cs_down(void *intf_ptr)
 {
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_RESET);
+	shift_reg_t *sr_ptr = (shift_reg_t *)intf_ptr;
+	shift_reg_oe(sr_ptr, true);
+
+	shift_reg_write_bit_16(sr_ptr, 2, true);
 }
 
 
-static void bme_spi_cs_up(void)
+
+
+static void bme_spi_cs_up(void *intf_ptr)
 {
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_SET);
+	shift_reg_t *sr_ptr = (shift_reg_t *)intf_ptr;
+	shift_reg_oe(sr_ptr, false);
+
+	shift_reg_write_bit_16(sr_ptr, 2, false);
 }
 
 
@@ -84,6 +92,14 @@ static int32_t lsm_i2c_write(void * handle, uint8_t reg_addr, const uint8_t * da
 
 int app_main(void)
 {
+	typedef struct {
+		SPI_HandleTypeDef *hspi1; // Хэндлер шины SPI
+		GPIO_TypeDef GPIO_C; // Порт Latch-а, например, GPIOA, GPIOB, etc
+		uint16_t *GPIO_Pin_1; // Маска Latch-а, например, GPIO_Pin_1, GPIO_Pin_2, etc
+		GPIO_TypeDef GPIO_C; // Порт OE, например, GPIOA, GPIOB, etc
+		uint16_t *GPIO_Pin_13; // Маска OE, например, GPIO_Pin_1, GPIO_Pin_2, etc
+		} shift_reg_t;
+
 	// Настройка bme280 =-=-=-=-=-=-=-=-=-=-=-=-
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 	struct bme280_dev bme = {0};
