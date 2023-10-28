@@ -5,39 +5,48 @@
 #include "lsm6ds3_reg.h"
 #include "bme280.h"
 
-
-
+struct spi_ptr
+{
+	int sr_pin;
+	SPI_HandleTypeDef* spi;
+	//Shift reg device
+	shift_reg_t *sr;
+};
 static void bme_spi_cs_down(void *intf_ptr)
 {
 	shift_reg_t *sr_ptr = (shift_reg_t *)intf_ptr;
 	shift_reg_oe(sr_ptr, true);
 
 	shift_reg_write_bit_16(sr_ptr, 2, true);
+	shift_reg_oe(sr_ptr, false);
 }
 
 
 
 
-static void bme_spi_cs_up(void *intf_ptr)
+static void bme_spi_cs_up(shift_reg_t *sr_ptr, uint8_t pin)
 {
-	shift_reg_t *sr_ptr = (shift_reg_t *)intf_ptr;
 	shift_reg_oe(sr_ptr, false);
 
-	shift_reg_write_bit_16(sr_ptr, 2, false);
+	shift_reg_write_bit_16(sr_ptr, pin, false);
+
+	shift_reg_oe(sr_ptr, true);
 }
 
 
 
 static BME280_INTF_RET_TYPE bme_spi_read(uint8_t reg_addr, uint8_t * data, uint32_t data_len, void *intf_ptr)
 {
-	extern SPI_HandleTypeDef hspi1;
-	bme_spi_cs_down();
+	//extern SPI_HandleTypeDef hspi1;
+	struct spi_ptr * bme_spi = intf_ptr;
+
+	bme_spi_cs_down(bme_spi);
 
 	reg_addr |= (1 << 7);
-	HAL_SPI_Transmit(&hspi1, &reg_addr, 1, HAL_MAX_DELAY);
-	HAL_SPI_Receive(&hspi1, data, data_len, HAL_MAX_DELAY);
+	HAL_SPI_Transmit(bme_spi->spi, &reg_addr, 1, HAL_MAX_DELAY);
+	HAL_SPI_Receive(bme_spi->spi, data, data_len, HAL_MAX_DELAY);
 
-	bme_spi_cs_up();
+	bme_spi_cs_up(bme_spi->sr, bme_spi->sr_pin);
 
 	return 0;
 }
@@ -48,12 +57,13 @@ static BME280_INTF_RET_TYPE bme_spi_write(
 )
 {
 	extern SPI_HandleTypeDef hspi1;
-
-	bme_spi_cs_down();
+	struct spi_ptr * bme_spi = intf_ptr;
+	bme_spi->sr_pin = 1;
+	bme_spi_cs_down(bme_spi);
 	reg_addr &= ~(1 << 7);
 	HAL_SPI_Transmit(&hspi1, &reg_addr, 1, HAL_MAX_DELAY);
 	HAL_SPI_Transmit(&hspi1, (uint8_t*)data, data_len, HAL_MAX_DELAY);
-	bme_spi_cs_up();
+	bme_spi_cs_up(bme_spi->sr, bme_spi->sr_pin);
 
 	return 0;
 }
@@ -89,22 +99,26 @@ static int32_t lsm_i2c_write(void * handle, uint8_t reg_addr, const uint8_t * da
 }
 
 
-
 int app_main(void)
 {
-	typedef struct {
-		SPI_HandleTypeDef *hspi1; // Хэндлер шины SPI
-		GPIO_TypeDef GPIO_C; // Порт Latch-а, например, GPIOA, GPIOB, etc
-		uint16_t *GPIO_Pin_1; // Маска Latch-а, например, GPIO_Pin_1, GPIO_Pin_2, etc
-		GPIO_TypeDef GPIO_C; // Порт OE, например, GPIOA, GPIOB, etc
-		uint16_t *GPIO_Pin_13; // Маска OE, например, GPIO_Pin_1, GPIO_Pin_2, etc
-		} shift_reg_t;
+	extern SPI_HandleTypeDef hspi1;
+
+	//Настройка SR
+	shift_reg_t sr = {0};
+	sr.bus = &hspi1;
+	sr.latch_port = GPIOC;
+	sr.latch_pin  = GPIO_PIN_1;
+	sr.oe_port = GPIOC;
+	sr.oe_pin = GPIO_PIN_13;
+
 
 	// Настройка bme280 =-=-=-=-=-=-=-=-=-=-=-=-
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 	struct bme280_dev bme = {0};
+	struct spi_ptr bme_spi = {};
+
 	bme.intf = BME280_SPI_INTF;
-	bme.intf_ptr = NULL;
+	bme.intf_ptr = &bme_spi;
 	bme.read = bme_spi_read;
 	bme.write = bme_spi_write;
 	bme.delay_us = bme_delay_us;
