@@ -20,23 +20,20 @@ static void bme_spi_cs_down(shift_reg_t *spi_sr_bus, uint8_t pin)
 
 	shift_reg_oe(spi_sr_bus, true);
 
-	shift_reg_write_bit_16(spi_sr_bus, pin, true);
+	shift_reg_write_bit_16(spi_sr_bus, pin, false);
 
 	shift_reg_oe(spi_sr_bus, false);
 }
-
-
 
 
 static void bme_spi_cs_up(shift_reg_t *spi_sr_bus, uint8_t pin)
 {
 	shift_reg_oe(spi_sr_bus, true);
 
-	shift_reg_write_bit_16(spi_sr_bus, pin, false);
+	shift_reg_write_bit_16(spi_sr_bus, pin, true);
 
 	shift_reg_oe(spi_sr_bus, false);
 }
-
 
 
 static BME280_INTF_RET_TYPE bme_spi_read(uint8_t reg_addr, uint8_t * data, uint32_t data_len, void *intf_ptr)
@@ -81,21 +78,62 @@ static void bme_delay_us(uint32_t period, void *intf_ptr)
 
 
 
-
-static int32_t lsm_i2c_read(void *handle, uint8_t reg_addr, uint8_t * data, uint16_t data_len)
+static void lsm_spi_cs_down(shift_reg_t *spi_sr_bus, uint8_t pin)
 {
-	extern I2C_HandleTypeDef hi2c1;
-	HAL_I2C_Mem_Read(&hi2c1, LSM6DS3_I2C_ADD_H, reg_addr, 1, data, data_len, HAL_MAX_DELAY);
+
+	shift_reg_oe(spi_sr_bus, true);
+
+	shift_reg_write_bit_16(spi_sr_bus, pin, false);
+
+	shift_reg_oe(spi_sr_bus, false);
+}
+
+static void lsm_spi_cs_up(shift_reg_t *spi_sr_bus, uint8_t pin)
+{
+	shift_reg_oe(spi_sr_bus, true);
+
+	shift_reg_write_bit_16(spi_sr_bus, pin, true);
+
+	shift_reg_oe(spi_sr_bus, false);
+}
+
+static int32_t lsm_spi_read(void * intf_ptr, uint8_t reg_addr, uint8_t * data, uint16_t data_len)
+{
+	struct spi_sr_bus * lsm_spi_ptr = intf_ptr;
+
+	lsm_spi_cs_down(lsm_spi_ptr->sr, lsm_spi_ptr->sr_pin);
+
+	reg_addr |= (1 << 7);
+	HAL_SPI_Transmit(lsm_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
+	HAL_SPI_Receive(lsm_spi_ptr->spi, data, data_len, HAL_MAX_DELAY);
+
+	lsm_spi_cs_up(lsm_spi_ptr->sr, lsm_spi_ptr->sr_pin);
+
 	return 0;
 }
 
-
-static int32_t lsm_i2c_write(void * handle, uint8_t reg_addr, const uint8_t * data, uint16_t data_len)
+static int32_t lsm_spi_write(void * intf_ptr, uint8_t reg_addr, const uint8_t * data, uint16_t data_len)
 {
-	extern I2C_HandleTypeDef hi2c1;
-	HAL_I2C_Mem_Write(&hi2c1, LSM6DS3_I2C_ADD_H, reg_addr, 1, (uint8_t*)data, data_len, HAL_MAX_DELAY);
+	struct spi_sr_bus * lsm_spi_ptr = intf_ptr;
+	lsm_spi_cs_down(lsm_spi_ptr->sr, lsm_spi_ptr->sr_pin);
+	reg_addr &= ~(1 << 7);
+	HAL_SPI_Transmit(lsm_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
+	HAL_SPI_Transmit(lsm_spi_ptr->spi, (uint8_t*)data, data_len, HAL_MAX_DELAY);
+	lsm_spi_cs_up(lsm_spi_ptr->sr, lsm_spi_ptr->sr_pin);
+
 	return 0;
 }
+
+//static void lsm_delay_us(uint32_t period, void *intf_ptr)
+//{
+//	if (period < 1000)
+//		period = 1;
+//	else
+//		period = period / 1000;
+//
+//	HAL_Delay(period);
+//}
+
 
 
 int app_main(void)
@@ -103,23 +141,15 @@ int app_main(void)
 	extern SPI_HandleTypeDef hspi2;
 
 	//Настройка SR
-	shift_reg_t sr = {};
-	sr.bus = &hspi2;
-	sr.latch_port = GPIOC;
-	sr.latch_pin  = GPIO_PIN_1;
-	sr.oe_port = GPIOC;
-	sr.oe_pin = GPIO_PIN_13;
-	shift_reg_init(&sr);
-	shift_reg_write_16(&sr, 0xffff);
+	shift_reg_t sr_sensor = {};
+	sr_sensor.bus = &hspi2;
+	sr_sensor.latch_port = GPIOC;
+	sr_sensor.latch_pin  = GPIO_PIN_1;
+	sr_sensor.oe_port = GPIOC;
+	sr_sensor.oe_pin = GPIO_PIN_13;
+	shift_reg_init(&sr_sensor);
+	shift_reg_write_16(&sr_sensor, 0xffff);
 
-
-//	while(1)
-//	{
-//		shift_reg_write_bit_16(&sr, 9, true);
-//		HAL_Delay(500);
-//		shift_reg_write_bit_16(&sr, 9, false);
-//		HAL_Delay(500);
-//	}
 
 
 
@@ -128,7 +158,7 @@ int app_main(void)
 
 	struct spi_sr_bus bme_spi_ptr = {};
 	bme_spi_ptr.spi = &hspi2;
-	bme_spi_ptr.sr = &sr;
+	bme_spi_ptr.sr = &sr_sensor;
 	bme_spi_ptr.sr_pin = 2;
 
 	struct bme280_dev bme = {};
@@ -166,23 +196,28 @@ int app_main(void)
 
 	// Настройка lsm6ds3 =-=-=-=-=-=-=-=-=-=-=-=-
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-//	stmdev_ctx_t ctx = {0};
-//	ctx.handle = NULL;
-//	ctx.read_reg = lsm_i2c_read;
-//	ctx.write_reg = lsm_i2c_write;
-//
-//	uint8_t whoami = 0x00;
-//	lsm6ds3_device_id_get(&ctx, &whoami);
+	struct spi_sr_bus lsm_spi_ptr = {};
+	lsm_spi_ptr.spi = &hspi2;
+	lsm_spi_ptr.sr = &sr_sensor;
+	lsm_spi_ptr.sr_pin = 4;
+
+	stmdev_ctx_t ctx = {0};
+	ctx.handle = &lsm_spi_ptr;
+	ctx.read_reg = lsm_spi_read;
+	ctx.write_reg = lsm_spi_write;
+
+	uint8_t whoami = 0x00;
+	lsm6ds3_device_id_get(&ctx, &whoami);
 //	printf("got lsm6ds3 whoami 0x%02X, expected 0x%02X\n", (int)whoami, (int)LSM6DS3_ID);
-//
-//	lsm6ds3_reset_set(&ctx, PROPERTY_ENABLE);
-//	HAL_Delay(100);
-//
-//	lsm6ds3_xl_full_scale_set(&ctx, LSM6DS3_16g);
-//	lsm6ds3_xl_data_rate_set(&ctx, LSM6DS3_XL_ODR_104Hz);
-//
-//	lsm6ds3_gy_full_scale_set(&ctx, LSM6DS3_2000dps);
-//	lsm6ds3_gy_data_rate_set(&ctx, LSM6DS3_GY_ODR_104Hz);
+
+	lsm6ds3_reset_set(&ctx, PROPERTY_ENABLE);
+	HAL_Delay(100);
+
+	lsm6ds3_xl_full_scale_set(&ctx, LSM6DS3_16g);
+	lsm6ds3_xl_data_rate_set(&ctx, LSM6DS3_XL_ODR_104Hz);
+
+	lsm6ds3_gy_full_scale_set(&ctx, LSM6DS3_2000dps);
+	lsm6ds3_gy_data_rate_set(&ctx, LSM6DS3_GY_ODR_104Hz);
 
 	while(1)
 	{
@@ -191,22 +226,22 @@ int app_main(void)
 		int16_t temperature_raw;
 		int16_t acc_raw[3];
 		int16_t gyro_raw[3];
-//		lsm6ds3_temperature_raw_get(&ctx, &temperature_raw);
-//		lsm6ds3_acceleration_raw_get(&ctx, acc_raw);
-//		lsm6ds3_angular_rate_raw_get(&ctx, gyro_raw);
+		lsm6ds3_temperature_raw_get(&ctx, &temperature_raw);
+		lsm6ds3_acceleration_raw_get(&ctx, acc_raw);
+		lsm6ds3_angular_rate_raw_get(&ctx, gyro_raw);
 
 		// Пересчет из попугаев в человеческие величины
 		float temperature_celsius;
 		float acc_g[3];
 		float gyro_dps[3];
-//		temperature_celsius = lsm6ds3_from_lsb_to_celsius(temperature_raw);
-//		for (int i = 0; i < 3; i++)
-//		{
-//			acc_g[i] = lsm6ds3_from_fs16g_to_mg(acc_raw[i]) / 1000;
-//			gyro_dps[i] = lsm6ds3_from_fs2000dps_to_mdps(gyro_raw[i]) / 1000;
-//		}
+		temperature_celsius = lsm6ds3_from_lsb_to_celsius(temperature_raw);
+		for (int i = 0; i < 3; i++)
+		{
+			acc_g[i] = lsm6ds3_from_fs16g_to_mg(acc_raw[i]) / 1000;
+			gyro_dps[i] = lsm6ds3_from_fs2000dps_to_mdps(gyro_raw[i]) / 1000;
+		}
 
-		// Вывод
+		 //Вывод
 //		printf(
 //			"t = %8.4f; acc = %10.4f,%10.4f,%10.4f; gyro=%10.4f,%10.4f,%10.4f" " ||| ", //\n",
 //			temperature_celsius,
@@ -220,6 +255,34 @@ int app_main(void)
 
 		struct bme280_data comp_data;
 		rc = bme280_get_sensor_data(BME280_ALL, &comp_data, &bme);
+//
+		if (comp_data.temperature != 0){
+			shift_reg_write_bit_16(&sr_sensor, 9, true);
+			HAL_Delay(300);
+			shift_reg_write_bit_16(&sr_sensor, 9, false);
+			HAL_Delay(300);
+		};
+
+		if (acc_g != 0){
+			shift_reg_write_bit_16(&sr_sensor, 10, true);
+			HAL_Delay(300);
+			shift_reg_write_bit_16(&sr_sensor, 10, false);
+			HAL_Delay(300);
+		};
+//
+//		if (gyro_dps.gyro_dps[0] & gyro_dps.gyro_dps[1] & gyro_dps.gyro_dps[2]  != 1){
+//			shift_reg_write_bit_16(&sr, 11, true);
+//			HAL_Delay(300);
+//			shift_reg_write_bit_16(&sr, 11, false);
+//			HAL_Delay(300);
+//		};
+//
+//		if (comp_data.temperature != 1){
+//			shift_reg_write_bit_16(&sr, 12, true);
+//			HAL_Delay(300);
+//			shift_reg_write_bit_16(&sr, 12, false);
+//			HAL_Delay(300);
+//		};
 
 	    // Печать
 
