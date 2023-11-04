@@ -4,6 +4,7 @@
 #include "shift_reg.h"
 #include "lsm6ds3_reg.h"
 #include "bme280.h"
+#include "lis3mdl_reg.h"
 
 
 
@@ -103,7 +104,7 @@ static int32_t lsm_spi_read(void * intf_ptr, uint8_t reg_addr, uint8_t * data, u
 
 	lsm_spi_cs_down(lsm_spi_ptr->sr, lsm_spi_ptr->sr_pin);
 
-	reg_addr |= (1 << 7);
+	reg_addr=reg_addr|(1<<7);
 	HAL_SPI_Transmit(lsm_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
 	HAL_SPI_Receive(lsm_spi_ptr->spi, data, data_len, HAL_MAX_DELAY);
 
@@ -116,10 +117,58 @@ static int32_t lsm_spi_write(void * intf_ptr, uint8_t reg_addr, const uint8_t * 
 {
 	struct spi_sr_bus * lsm_spi_ptr = intf_ptr;
 	lsm_spi_cs_down(lsm_spi_ptr->sr, lsm_spi_ptr->sr_pin);
-	reg_addr &= ~(1 << 7);
+	reg_addr=reg_addr&~(1<<7);
 	HAL_SPI_Transmit(lsm_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
 	HAL_SPI_Transmit(lsm_spi_ptr->spi, (uint8_t*)data, data_len, HAL_MAX_DELAY);
 	lsm_spi_cs_up(lsm_spi_ptr->sr, lsm_spi_ptr->sr_pin);
+
+	return 0;
+}
+
+static void lis_spi_cs_down(shift_reg_t *spi_sr_bus, uint8_t pin)
+{
+
+	shift_reg_oe(spi_sr_bus, true);
+
+	shift_reg_write_bit_16(spi_sr_bus, pin, false);
+
+	shift_reg_oe(spi_sr_bus, false);
+}
+
+static void lis_spi_cs_up(shift_reg_t *spi_sr_bus, uint8_t pin)
+{
+	shift_reg_oe(spi_sr_bus, true);
+
+	shift_reg_write_bit_16(spi_sr_bus, pin, true);
+
+	shift_reg_oe(spi_sr_bus, false);
+}
+
+static int32_t lis_spi_read(void * intf_ptr, uint8_t reg_addr, uint8_t * data, uint16_t data_len)
+{
+	struct spi_sr_bus * lis_spi_ptr = intf_ptr;
+
+	lis_spi_cs_down(lis_spi_ptr->sr, lis_spi_ptr->sr_pin);
+
+	reg_addr=reg_addr|(1<<7);
+	reg_addr=reg_addr|(1<<6);
+	HAL_SPI_Transmit(lis_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
+	HAL_SPI_Receive(lis_spi_ptr->spi, data, data_len, HAL_MAX_DELAY);
+
+	lis_spi_cs_up(lis_spi_ptr->sr, lis_spi_ptr->sr_pin);
+
+	return 0;
+}
+
+static int32_t lis_spi_write(void * intf_ptr, uint8_t reg_addr, const uint8_t * data, uint16_t data_len)
+{
+	struct spi_sr_bus * lis_spi_ptr = intf_ptr;
+	lis_spi_cs_down(lis_spi_ptr->sr, lis_spi_ptr->sr_pin);
+	reg_addr=reg_addr&~(1<<7);
+	reg_addr=reg_addr|(1<<6);
+	HAL_SPI_Transmit(lis_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
+	HAL_SPI_Transmit(lis_spi_ptr->spi, (uint8_t*)data, data_len, HAL_MAX_DELAY);
+	lis_spi_cs_up(lis_spi_ptr->sr, lis_spi_ptr->sr_pin);
 
 	return 0;
 }
@@ -196,6 +245,7 @@ int app_main(void)
 
 	// Настройка lsm6ds3 =-=-=-=-=-=-=-=-=-=-=-=-
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 	struct spi_sr_bus lsm_spi_ptr = {};
 	lsm_spi_ptr.spi = &hspi2;
 	lsm_spi_ptr.sr = &sr_sensor;
@@ -219,6 +269,33 @@ int app_main(void)
 	lsm6ds3_gy_full_scale_set(&ctx, LSM6DS3_2000dps);
 	lsm6ds3_gy_data_rate_set(&ctx, LSM6DS3_GY_ODR_104Hz);
 
+
+	//Настройка lis3mdl =-=-=-=-=-=-=-=-=-=-=-=-
+	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+	struct spi_sr_bus lis_spi_ptr = {};
+	lis_spi_ptr.spi = &hspi2;
+	lis_spi_ptr.sr = &sr_sensor;
+	lis_spi_ptr.sr_pin = 3;
+	stmdev_ctx_lis_t handle = {};
+	handle.handle = &lis_spi_ptr;
+	handle.read_reg = lis_spi_read;
+	handle.write_reg = lis_spi_write;
+
+	uint8_t whoami_lis = 0x00;
+	lis3mdl_device_id_get(&handle, &whoami_lis);
+
+	lis3mdl_reset_set(&handle, PROPERTY_ENABLE);
+	HAL_Delay(100);
+
+	lis3mdl_block_data_update_set(&handle, PROPERTY_ENABLE);
+	lis3mdl_fast_low_power_set(&handle, PROPERTY_DISABLE);
+	lis3mdl_full_scale_set(&handle, LIS3MDL_16_GAUSS);
+	lis3mdl_data_rate_set(&handle, LIS3MDL_UHP_80Hz);
+	lis3mdl_temperature_meas_set(&handle, PROPERTY_ENABLE);
+	lis3mdl_operating_mode_set(&handle, LIS3MDL_CONTINUOUS_MODE);
+
+
 	while(1)
 	{
 		// Чтение данных из lsm6ds3
@@ -241,7 +318,7 @@ int app_main(void)
 			gyro_dps[i] = lsm6ds3_from_fs2000dps_to_mdps(gyro_raw[i]) / 1000;
 		}
 
-		 //Вывод
+//		 Вывод
 //		printf(
 //			"t = %8.4f; acc = %10.4f,%10.4f,%10.4f; gyro=%10.4f,%10.4f,%10.4f" " ||| ", //\n",
 //			temperature_celsius,
@@ -252,6 +329,20 @@ int app_main(void)
 
 		// Чтение данные из bme280
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+
+		int16_t temperataure_raw_mag;
+		int16_t mag_raw[3];
+		float temperature_celsius_mag;
+		float mag[3];
+		lis3mdl_magnetic_raw_get(&handle, mag_raw);
+		lis3mdl_temperature_raw_get(&handle, &temperataure_raw_mag);
+		temperature_celsius_mag = lis3mdl_from_lsb_to_celsius(temperataure_raw_mag);
+		for (int i = 0; i < 3; i++){
+			(mag)[i] = lis3mdl_from_fs16_to_gauss(mag_raw[i]);
+		};
+
+
 
 		struct bme280_data comp_data;
 		rc = bme280_get_sensor_data(BME280_ALL, &comp_data, &bme);
@@ -269,20 +360,14 @@ int app_main(void)
 			shift_reg_write_bit_16(&sr_sensor, 10, false);
 			HAL_Delay(300);
 		};
-//
-//		if (gyro_dps.gyro_dps[0] & gyro_dps.gyro_dps[1] & gyro_dps.gyro_dps[2]  != 1){
-//			shift_reg_write_bit_16(&sr, 11, true);
-//			HAL_Delay(300);
-//			shift_reg_write_bit_16(&sr, 11, false);
-//			HAL_Delay(300);
-//		};
-//
-//		if (comp_data.temperature != 1){
-//			shift_reg_write_bit_16(&sr, 12, true);
-//			HAL_Delay(300);
-//			shift_reg_write_bit_16(&sr, 12, false);
-//			HAL_Delay(300);
-//		};
+
+
+		if (mag != 0){
+			shift_reg_write_bit_16(&sr_sensor, 11, true);
+			HAL_Delay(300);
+			shift_reg_write_bit_16(&sr_sensor, 11, false);
+			HAL_Delay(300);
+		};
 
 	    // Печать
 
