@@ -5,7 +5,8 @@
 #include "lsm6ds3_reg.h"
 #include "bme280.h"
 #include "lis3mdl_reg.h"
-
+#include "one_wire.h"
+#include "timers.h"
 
 
 
@@ -199,8 +200,18 @@ int app_main(void)
 	shift_reg_init(&sr_sensor);
 	shift_reg_write_16(&sr_sensor, 0xffff);
 
+	//НАстройка DS18B20
+	ds18b20_t ds;
+	ds.onewire_port = GPIOA;
+	ds.onewire_pin = GPIO_PIN_1;
 
-
+	onewire_init(&ds);
+	ds18b20_set_config(&ds, 100, -100, DS18B20_RESOLUTION_12_BIT);
+	uint16_t temp_ds;
+	uint32_t start_time_ds = HAL_GetTick();
+	bool crc_ok_ds = false;
+	float ds_temp;
+	ds18b20_start_conversion(&ds);
 
 	// Настройка bme280 =-=-=-=-=-=-=-=-=-=-=-=-
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -342,6 +353,19 @@ int app_main(void)
 			(mag)[i] = lis3mdl_from_fs16_to_gauss(mag_raw[i]);
 		};
 
+		//ds reading
+		if (HAL_GetTick()-start_time_ds >= 750)
+				{
+					uint8_t buf[8];
+			        onewire_read_rom(&ds, buf);
+					ds18b20_read_raw_temperature(&ds, &temp_ds, &crc_ok_ds);
+					ds18b20_start_conversion(&ds);
+					start_time_ds = HAL_GetTick();
+					ds_temp = ((float)temp_ds) / 16;
+				}
+
+
+
 
 
 		struct bme280_data comp_data;
@@ -369,6 +393,8 @@ int app_main(void)
 			HAL_Delay(300);
 		};
 
+
+
 	    // Печать
 
 //		printf(
@@ -380,6 +406,7 @@ int app_main(void)
 
 
 		//HAL_Delay(100);
+
 	}
 
 	return 0;
