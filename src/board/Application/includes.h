@@ -17,9 +17,9 @@
 //#include <1Wire_DS18B20/one_wire.h>
 //#include <Dosimeter/dosimeter.h>
 //
-//#include <nRF24L01_PL/nrf24_upper_api.h>
-//#include <nRF24L01_PL/nrf24_lower_api.h>
-//#include <nRF24L01_PL/nrf24_lower_api_stm32.h>
-//#include <nRF24L01_PL/nrf24_defs.h>
+#include "nRF/nrf24_upper_api.h"
+#include "nRF/nrf24_lower_api.h"
+#include "nRF/nrf24_lower_api_stm32.h"
+#include "nRF/nrf24_defs.h"
 
 #endif /* INCLUDES_H_ */

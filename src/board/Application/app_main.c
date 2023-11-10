@@ -1,12 +1,13 @@
 #include <stdio.h>
 
 #include <stm32f4xx_hal.h>
-#include "shift_reg.h"
-#include "lsm6ds3_reg.h"
-#include "bme280.h"
-#include "lis3mdl_reg.h"
-#include "one_wire.h"
+#include "Shift_Register/shift_reg.h"
+#include "LSM6DS3/lsm6ds3_reg.h"
+#include "BME280/bme280.h"
+#include "LIS3MDL/lis3mdl_reg.h"
+#include "DS18B20/one_wire.h"
 #include "timers.h"
+#include "includes.h"
 
 
 
@@ -17,6 +18,7 @@ struct spi_sr_bus
 	//Shift reg device
 	shift_reg_t *sr;
 };
+
 static void bme_spi_cs_down(shift_reg_t *spi_sr_bus, uint8_t pin)
 {
 
@@ -126,6 +128,7 @@ static int32_t lsm_spi_write(void * intf_ptr, uint8_t reg_addr, const uint8_t * 
 	return 0;
 }
 
+
 static void lis_spi_cs_down(shift_reg_t *spi_sr_bus, uint8_t pin)
 {
 
@@ -200,6 +203,16 @@ int app_main(void)
 	shift_reg_init(&sr_sensor);
 	shift_reg_write_16(&sr_sensor, 0xffff);
 
+
+	shift_reg_t shift_reg_r = {};
+	shift_reg_r.latch_port = GPIOC;
+	shift_reg_r.latch_pin = GPIO_PIN_4;
+	shift_reg_r.oe_port = GPIOC;
+	shift_reg_r.oe_pin = GPIO_PIN_5;
+	shift_reg_r.value = 0;
+	shift_reg_init(&shift_reg_r);
+	shift_reg_write_8(&shift_reg_r, 0xFF);
+
 	//НАстройка DS18B20
 	ds18b20_t ds;
 	ds.onewire_port = GPIOA;
@@ -209,6 +222,7 @@ int app_main(void)
 	ds18b20_set_config(&ds, 100, -100, DS18B20_RESOLUTION_12_BIT);
 	uint16_t temp_ds;
 	uint32_t start_time_ds = HAL_GetTick();
+	uint32_t start_time_nrf = HAL_GetTick();
 	bool crc_ok_ds = false;
 	float ds_temp;
 	ds18b20_start_conversion(&ds);
@@ -306,6 +320,50 @@ int app_main(void)
 	lis3mdl_temperature_meas_set(&handle, PROPERTY_ENABLE);
 	lis3mdl_operating_mode_set(&handle, LIS3MDL_CONTINUOUS_MODE);
 
+	//настройка радио
+
+
+	nrf24_spi_pins_sr_t nrf_pins_sr;
+	nrf_pins_sr.this = &shift_reg_r;
+	nrf_pins_sr.pos_CE = 0;
+	nrf_pins_sr.pos_CS = 1;
+	nrf24_lower_api_config_t nrf24;
+	nrf24_spi_init_sr(&nrf24, &hspi2, &nrf_pins_sr);
+
+	nrf24_mode_power_down(&nrf24);
+	nrf24_rf_config_t nrf_config;
+	nrf_config.data_rate = NRF24_DATARATE_250_KBIT;
+	nrf_config.tx_power = NRF24_TXPOWER_MINUS_0_DBM;
+	nrf_config.rf_channel = 30;
+	nrf24_setup_rf(&nrf24, &nrf_config);
+	nrf24_protocol_config_t nrf_protocol_config;
+	nrf_protocol_config.crc_size = NRF24_CRCSIZE_1BYTE;
+	nrf_protocol_config.address_width = NRF24_ADDRES_WIDTH_5_BYTES;
+	nrf_protocol_config.en_dyn_payload_size = true;
+	nrf_protocol_config.en_ack_payload = true;
+	nrf_protocol_config.en_dyn_ack = true;
+	nrf_protocol_config.auto_retransmit_count = 0;
+	nrf_protocol_config.auto_retransmit_delay = 0;
+	nrf24_setup_protocol(&nrf24, &nrf_protocol_config);
+	nrf24_pipe_set_tx_addr(&nrf24, 0x123456789a);
+
+	nrf24_pipe_config_t pipe_config;
+		for (int i = 1; i < 6; i++)
+		{
+			pipe_config.address = 0xcfcfcfcfcf;
+			pipe_config.address = (pipe_config.address & ~((uint64_t)0xff << 32)) | ((uint64_t)(i + 7) << 32);
+			pipe_config.enable_auto_ack = false;
+			pipe_config.payload_size = -1;
+			nrf24_pipe_rx_start(&nrf24, i, &pipe_config);
+		}
+
+	pipe_config.address = 0xafafafaf01;
+	pipe_config.enable_auto_ack = false;
+	pipe_config.payload_size = -1;
+	nrf24_pipe_rx_start(&nrf24, 0, &pipe_config);
+
+	nrf24_mode_standby(&nrf24);
+	nrf24_mode_tx(&nrf24);
 
 	while(1)
 	{
@@ -341,6 +399,9 @@ int app_main(void)
 		// Чтение данные из bme280
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+
+
+		nrf24_pipe_config_t pipe_config;
 
 		int16_t temperataure_raw_mag;
 		int16_t mag_raw[3];
@@ -392,6 +453,14 @@ int app_main(void)
 			shift_reg_write_bit_16(&sr_sensor, 11, false);
 			HAL_Delay(300);
 		};
+
+		uint8_t buf [] = "Hello, TSNIIMASH";
+
+
+
+		nrf24_fifo_flush_tx(&nrf24);
+		nrf24_fifo_write(&nrf24, (uint8_t *)buf, sizeof(buf), false);//32
+
 
 
 

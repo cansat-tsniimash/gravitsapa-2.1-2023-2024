@@ -2,7 +2,7 @@
 #ifdef HAL_GPIO_MODULE_ENABLED
 
 #include <stm32f4xx_hal.h>
-#include "dwt_delay.h"
+#include "../dwt_delay.h"
 
 // =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 // Команды этапа адресации
