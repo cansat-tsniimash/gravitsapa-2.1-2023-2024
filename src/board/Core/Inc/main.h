@@ -65,6 +65,10 @@ void Error_Handler(void);
 #define Latch_RF_GPIO_Port GPIOC
 #define OE_RF_Pin GPIO_PIN_5
 #define OE_RF_GPIO_Port GPIOC
+#define GPS_TX_Pin GPIO_PIN_9
+#define GPS_TX_GPIO_Port GPIOA
+#define GPS_RX_Pin GPIO_PIN_10
+#define GPS_RX_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 

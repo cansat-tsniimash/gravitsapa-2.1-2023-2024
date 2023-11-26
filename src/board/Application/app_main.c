@@ -9,6 +9,7 @@
 #include "timers.h"
 #include "includes.h"
 
+extern UART_HandleTypeDef huart6;
 
 
 struct spi_sr_bus
@@ -319,6 +320,15 @@ int app_main(void)
 	lis3mdl_data_rate_set(&handle, LIS3MDL_UHP_80Hz);
 	lis3mdl_temperature_meas_set(&handle, PROPERTY_ENABLE);
 	lis3mdl_operating_mode_set(&handle, LIS3MDL_CONTINUOUS_MODE);
+	//Настройка GPS
+	int64_t cookie;
+	int fix_;
+	float lon, lat, alt;
+	uint64_t gps_buf;
+	gps_init();
+	uint64_t gps_time_s;
+	uint32_t gps_time_us;
+
 
 	//настройка радио
 
@@ -463,15 +473,24 @@ int app_main(void)
 
 
 
-
+		gps_work();
+		gps_get_coords(&cookie, &lat, &lon, &alt, &fix_);
+		gps_get_time(&cookie, &gps_time_s, &gps_time_us);
+		if (fix_<3){
+			shift_reg_write_bit_16(&sr_sensor, 8, true);
+			HAL_Delay(300);
+			shift_reg_write_bit_16(&sr_sensor, 8, false);
+			HAL_Delay(300);
+			};
 	    // Печать
 
-//		printf(
-//			"temp = %8.4f; pressure = %10.4f; hum = %10.4f\n",
-//			(float)comp_data.temperature,
-//			(float)comp_data.pressure,
-//			(float)comp_data.humidity
-//		);
+		printf(
+			"FIX = %1d ,lat = %2.8f; lon = %2.8f; alt = %2.8f\n",
+			(int)fix_,
+			(float)lat,
+			(float)lon,
+			(float)alt
+		);
 
 
 		//HAL_Delay(100);
