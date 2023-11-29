@@ -10,6 +10,12 @@
 #include "includes.h"
 
 extern UART_HandleTypeDef huart6;
+extern UART_HandleTypeDef huart1;
+
+
+
+
+
 
 
 struct spi_sr_bus
@@ -188,6 +194,12 @@ static int32_t lis_spi_write(void * intf_ptr, uint8_t reg_addr, const uint8_t * 
 //	HAL_Delay(period);
 //}
 
+int _write(int file, char *ptr, int len)
+{
+  HAL_UART_Transmit(&huart1, (uint8_t *)ptr, len, 100);
+  return 0;
+}
+
 
 
 int app_main(void)
@@ -330,7 +342,7 @@ int app_main(void)
 	uint32_t gps_time_us;
 
 
-	//настройка радио
+
 
 
 	nrf24_spi_pins_sr_t nrf_pins_sr;
@@ -464,12 +476,12 @@ int app_main(void)
 			HAL_Delay(300);
 		};
 
-		uint8_t buf [] = "Hello, TSNIIMASH";
 
 
 
-		nrf24_fifo_flush_tx(&nrf24);
-		nrf24_fifo_write(&nrf24, (uint8_t *)buf, sizeof(buf), false);//32
+
+		//nrf24_fifo_flush_tx(&nrf24);
+		//nrf24_fifo_write(&nrf24, (uint8_t *)buf, sizeof(buf), false);//32
 
 
 
@@ -483,14 +495,9 @@ int app_main(void)
 			HAL_Delay(300);
 			};
 	    // Печать
+		  printf("FIX = %1d ,lat = %2.8f; lon = %2.8f; alt = %2.8f\r\n", (int)fix_, (float)lat, (float)lon, (float)alt);
 
-		printf(
-			"FIX = %1d ,lat = %2.8f; lon = %2.8f; alt = %2.8f\n",
-			(int)fix_,
-			(float)lat,
-			(float)lon,
-			(float)alt
-		);
+
 
 
 		//HAL_Delay(100);
