@@ -338,6 +338,8 @@ int app_main(void)
 	float lon, lat, alt;
 	uint64_t gps_buf;
 	gps_init();
+	__HAL_UART_ENABLE_IT(&huart6, UART_IT_RXNE);
+	__HAL_UART_ENABLE_IT(&huart6, UART_IT_ERR);
 	uint64_t gps_time_s;
 	uint32_t gps_time_us;
 
