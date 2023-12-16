@@ -204,6 +204,57 @@ int _write(int file, char *ptr, int len)
 
 int app_main(void)
 {
+	FATFS fileSystem;
+	FIL File_bin;
+	FIL File_csv;
+	FRESULT res_bin = 255;
+	FRESULT res_csv = 255;
+	FRESULT megares = 255;
+
+	const char path4[] = "packet_csv.csv";
+	const char path_bin[] = "packet.bin";
+
+	memset(&fileSystem, 0x00, sizeof(fileSystem));
+	FRESULT is_mount = 0;
+	extern Disk_drvTypeDef disk;
+	disk.is_initialized[0] = 0;
+	is_mount = f_mount(&fileSystem, "", 1);
+	if(is_mount == FR_OK) { // монтируете файловую систему по пути SDPath, проверяете, что она смонтировалась, только при этом условии начинаете с ней работать
+		res1 = f_open(&File1, (char*)path1, FA_WRITE | FA_CREATE_ALWAYS); // открытие файла, обязательно для работы с ним
+		f_puts("flag; num; time_ms; accl1; accl2; accl3; gyro1; gyro2; gyro3; mag1; mag2; mag3; crc\n", &File1);
+		res1 = f_sync(&File1);
+	}
+
+	if(is_mount == FR_OK) { // монтируете файловую систему по пути SDPath, проверяете, что она смонтировалась, только при этом условии начинаете с ней работать
+		res_bin = f_open(&File_bin, (char*)path_bin, FA_WRITE | FA_CREATE_ALWAYS); // открытие файла, обязательно для работы с ним
+	}
+
+	//переменные
+
+	bool mount = false;
+
+	float temperature_celsius_gyro = 0.0;
+	float acc_g[3] = {0};
+	float gyro_dps[3] = {0};
+	float temperature_celsius_mag = 0.0;
+	float mag[3] = {0};
+	float lat;
+	float lon;
+	float alt;
+	uint16_t temp_ds;
+	bool crc_ok_ds = false;
+	uint32_t start_time_ds = HAL_GetTick();
+	uint32_t start_time_nrf = HAL_GetTick();
+	uint32_t start_time_sd = HAL_GetTick();
+	nrf24_fifo_status_t rx_status = NRF24_FIFO_EMPTY;
+	nrf24_fifo_status_t tx_status = NRF24_FIFO_EMPTY;
+	float limit_lux;
+	int counter = 0;
+	UINT Bytes;
+	int comp = 0;
+	int fast_count = 0;
+
+
 	extern SPI_HandleTypeDef hspi2;
 
 	//Настройка SR
