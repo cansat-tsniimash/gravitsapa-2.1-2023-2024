@@ -14,186 +14,6 @@ extern UART_HandleTypeDef huart1;
 
 
 
-
-
-
-
-struct spi_sr_bus
-{
-	int sr_pin;
-	SPI_HandleTypeDef* spi;
-	//Shift reg device
-	shift_reg_t *sr;
-};
-
-static void bme_spi_cs_down(shift_reg_t *spi_sr_bus, uint8_t pin)
-{
-
-	shift_reg_oe(spi_sr_bus, true);
-
-	shift_reg_write_bit_16(spi_sr_bus, pin, false);
-
-	shift_reg_oe(spi_sr_bus, false);
-}
-
-
-static void bme_spi_cs_up(shift_reg_t *spi_sr_bus, uint8_t pin)
-{
-	shift_reg_oe(spi_sr_bus, true);
-
-	shift_reg_write_bit_16(spi_sr_bus, pin, true);
-
-	shift_reg_oe(spi_sr_bus, false);
-}
-
-
-static BME280_INTF_RET_TYPE bme_spi_read(uint8_t reg_addr, uint8_t * data, uint32_t data_len, void *intf_ptr)
-{
-	struct spi_sr_bus * bme_spi_ptr = intf_ptr;
-
-	bme_spi_cs_down(bme_spi_ptr->sr, bme_spi_ptr->sr_pin);
-
-	reg_addr |= (1 << 7);
-	HAL_SPI_Transmit(bme_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
-	HAL_SPI_Receive(bme_spi_ptr->spi, data, data_len, HAL_MAX_DELAY);
-
-	bme_spi_cs_up(bme_spi_ptr->sr, bme_spi_ptr->sr_pin);
-
-	return 0;
-}
-
-
-static BME280_INTF_RET_TYPE bme_spi_write(uint8_t reg_addr, const uint8_t * data, uint32_t data_len, void *intf_ptr)
-{
-	struct spi_sr_bus * bme_spi_ptr = intf_ptr;
-	bme_spi_cs_down(bme_spi_ptr->sr, bme_spi_ptr->sr_pin);
-	reg_addr &= ~(1 << 7);
-	HAL_SPI_Transmit(bme_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
-	HAL_SPI_Transmit(bme_spi_ptr->spi, (uint8_t*)data, data_len, HAL_MAX_DELAY);
-	bme_spi_cs_up(bme_spi_ptr->sr, bme_spi_ptr->sr_pin);
-
-	return 0;
-}
-
-
-static void bme_delay_us(uint32_t period, void *intf_ptr)
-{
-	if (period < 1000)
-		period = 1;
-	else
-		period = period / 1000;
-
-	HAL_Delay(period);
-}
-
-
-
-
-static void lsm_spi_cs_down(shift_reg_t *spi_sr_bus, uint8_t pin)
-{
-
-	shift_reg_oe(spi_sr_bus, true);
-
-	shift_reg_write_bit_16(spi_sr_bus, pin, false);
-
-	shift_reg_oe(spi_sr_bus, false);
-}
-
-static void lsm_spi_cs_up(shift_reg_t *spi_sr_bus, uint8_t pin)
-{
-	shift_reg_oe(spi_sr_bus, true);
-
-	shift_reg_write_bit_16(spi_sr_bus, pin, true);
-
-	shift_reg_oe(spi_sr_bus, false);
-}
-
-static int32_t lsm_spi_read(void * intf_ptr, uint8_t reg_addr, uint8_t * data, uint16_t data_len)
-{
-	struct spi_sr_bus * lsm_spi_ptr = intf_ptr;
-
-	lsm_spi_cs_down(lsm_spi_ptr->sr, lsm_spi_ptr->sr_pin);
-
-	reg_addr=reg_addr|(1<<7);
-	HAL_SPI_Transmit(lsm_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
-	HAL_SPI_Receive(lsm_spi_ptr->spi, data, data_len, HAL_MAX_DELAY);
-
-	lsm_spi_cs_up(lsm_spi_ptr->sr, lsm_spi_ptr->sr_pin);
-
-	return 0;
-}
-
-static int32_t lsm_spi_write(void * intf_ptr, uint8_t reg_addr, const uint8_t * data, uint16_t data_len)
-{
-	struct spi_sr_bus * lsm_spi_ptr = intf_ptr;
-	lsm_spi_cs_down(lsm_spi_ptr->sr, lsm_spi_ptr->sr_pin);
-	reg_addr=reg_addr&~(1<<7);
-	HAL_SPI_Transmit(lsm_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
-	HAL_SPI_Transmit(lsm_spi_ptr->spi, (uint8_t*)data, data_len, HAL_MAX_DELAY);
-	lsm_spi_cs_up(lsm_spi_ptr->sr, lsm_spi_ptr->sr_pin);
-
-	return 0;
-}
-
-
-static void lis_spi_cs_down(shift_reg_t *spi_sr_bus, uint8_t pin)
-{
-
-	shift_reg_oe(spi_sr_bus, true);
-
-	shift_reg_write_bit_16(spi_sr_bus, pin, false);
-
-	shift_reg_oe(spi_sr_bus, false);
-}
-
-static void lis_spi_cs_up(shift_reg_t *spi_sr_bus, uint8_t pin)
-{
-	shift_reg_oe(spi_sr_bus, true);
-
-	shift_reg_write_bit_16(spi_sr_bus, pin, true);
-
-	shift_reg_oe(spi_sr_bus, false);
-}
-
-static int32_t lis_spi_read(void * intf_ptr, uint8_t reg_addr, uint8_t * data, uint16_t data_len)
-{
-	struct spi_sr_bus * lis_spi_ptr = intf_ptr;
-
-	lis_spi_cs_down(lis_spi_ptr->sr, lis_spi_ptr->sr_pin);
-
-	reg_addr=reg_addr|(1<<7);
-	reg_addr=reg_addr|(1<<6);
-	HAL_SPI_Transmit(lis_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
-	HAL_SPI_Receive(lis_spi_ptr->spi, data, data_len, HAL_MAX_DELAY);
-
-	lis_spi_cs_up(lis_spi_ptr->sr, lis_spi_ptr->sr_pin);
-
-	return 0;
-}
-
-static int32_t lis_spi_write(void * intf_ptr, uint8_t reg_addr, const uint8_t * data, uint16_t data_len)
-{
-	struct spi_sr_bus * lis_spi_ptr = intf_ptr;
-	lis_spi_cs_down(lis_spi_ptr->sr, lis_spi_ptr->sr_pin);
-	reg_addr=reg_addr&~(1<<7);
-	reg_addr=reg_addr|(1<<6);
-	HAL_SPI_Transmit(lis_spi_ptr->spi, &reg_addr, 1, HAL_MAX_DELAY);
-	HAL_SPI_Transmit(lis_spi_ptr->spi, (uint8_t*)data, data_len, HAL_MAX_DELAY);
-	lis_spi_cs_up(lis_spi_ptr->sr, lis_spi_ptr->sr_pin);
-
-	return 0;
-}
-
-//static void lsm_delay_us(uint32_t period, void *intf_ptr)
-//{
-//	if (period < 1000)
-//		period = 1;
-//	else
-//		period = period / 1000;
-//
-//	HAL_Delay(period);
-//}
-
 int _write(int file, char *ptr, int len)
 {
   HAL_UART_Transmit(&huart1, (uint8_t *)ptr, len, 100);
@@ -204,57 +24,6 @@ int _write(int file, char *ptr, int len)
 
 int app_main(void)
 {
-	FATFS fileSystem;
-	FIL File_bin;
-	FIL File_csv;
-	FRESULT res_bin = 255;
-	FRESULT res_csv = 255;
-	FRESULT megares = 255;
-
-	const char path4[] = "packet_csv.csv";
-	const char path_bin[] = "packet.bin";
-
-	memset(&fileSystem, 0x00, sizeof(fileSystem));
-	FRESULT is_mount = 0;
-	extern Disk_drvTypeDef disk;
-	disk.is_initialized[0] = 0;
-	is_mount = f_mount(&fileSystem, "", 1);
-	if(is_mount == FR_OK) { // монтируете файловую систему по пути SDPath, проверяете, что она смонтировалась, только при этом условии начинаете с ней работать
-		res1 = f_open(&File1, (char*)path1, FA_WRITE | FA_CREATE_ALWAYS); // открытие файла, обязательно для работы с ним
-		f_puts("flag; num; time_ms; accl1; accl2; accl3; gyro1; gyro2; gyro3; mag1; mag2; mag3; crc\n", &File1);
-		res1 = f_sync(&File1);
-	}
-
-	if(is_mount == FR_OK) { // монтируете файловую систему по пути SDPath, проверяете, что она смонтировалась, только при этом условии начинаете с ней работать
-		res_bin = f_open(&File_bin, (char*)path_bin, FA_WRITE | FA_CREATE_ALWAYS); // открытие файла, обязательно для работы с ним
-	}
-
-	//переменные
-
-	bool mount = false;
-
-	float temperature_celsius_gyro = 0.0;
-	float acc_g[3] = {0};
-	float gyro_dps[3] = {0};
-	float temperature_celsius_mag = 0.0;
-	float mag[3] = {0};
-	float lat;
-	float lon;
-	float alt;
-	uint16_t temp_ds;
-	bool crc_ok_ds = false;
-	uint32_t start_time_ds = HAL_GetTick();
-	uint32_t start_time_nrf = HAL_GetTick();
-	uint32_t start_time_sd = HAL_GetTick();
-	nrf24_fifo_status_t rx_status = NRF24_FIFO_EMPTY;
-	nrf24_fifo_status_t tx_status = NRF24_FIFO_EMPTY;
-	float limit_lux;
-	int counter = 0;
-	UINT Bytes;
-	int comp = 0;
-	int fast_count = 0;
-
-
 	extern SPI_HandleTypeDef hspi2;
 
 	//Настройка SR
@@ -537,16 +306,21 @@ int app_main(void)
 		//nrf24_fifo_write(&nrf24, (uint8_t *)buf, sizeof(buf), false);//32
 
 
-
 		gps_work();
 		gps_get_coords(&cookie, &lat, &lon, &alt, &fix_);
 		gps_get_time(&cookie, &gps_time_s, &gps_time_us);
-		if (fix_<3){
+		if (fix_ < 3 ){
 			shift_reg_write_bit_16(&sr_sensor, 8, true);
 			HAL_Delay(300);
 			shift_reg_write_bit_16(&sr_sensor, 8, false);
 			HAL_Delay(300);
 			};
+		if(fix_ > 0){
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 1);
+			HAL_Delay(500);
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 0);
+			HAL_Delay(500);
+		}
 	    // Печать
 		  printf("FIX = %1d ,lat = %2.8f; lon = %2.8f; alt = %2.8f\r\n", (int)fix_, (float)lat, (float)lon, (float)alt);
 

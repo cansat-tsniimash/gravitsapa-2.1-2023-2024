@@ -7,19 +7,24 @@
 #include <string.h>
 #include <stm32f4xx_hal.h>
 //#include <fatfs.h>
-//
-////#include <DWT_Delay/dwt_delay.h>
-//#include <Shift_Register/shift_reg.h>
-//#include <BME280/DriverForBME280.h>
-//#include <LSM6DS3/DLSM.h>
-//#include <LIS3MDL/DLIS3.h>
-//#include <ATGM336H/nmea_gps.h>
-//#include <1Wire_DS18B20/one_wire.h>
-//#include <Dosimeter/dosimeter.h>
-//
+#include <Shift_Register/shift_reg.h>
+#include <ATGM336H/nmea_gps.h>
+#include <DS18B20/one_wire.h>
 #include "nRF/nrf24_upper_api.h"
 #include "nRF/nrf24_lower_api.h"
 #include "nRF/nrf24_lower_api_stm32.h"
 #include "nRF/nrf24_defs.h"
+#include "BME280/bme280_defs.h"
+#include "bme/bme.h"
+#include "lsm/lsm.h"
+#include "lis/lis.h"
+
+struct spi_sr_bus
+{
+	int sr_pin;
+	SPI_HandleTypeDef* spi;
+	//Shift reg device
+	shift_reg_t *sr;
+};
 
 #endif /* INCLUDES_H_ */
