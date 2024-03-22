@@ -8,9 +8,12 @@
 #include "DS18B20/one_wire.h"
 #include "timers.h"
 #include "includes.h"
+#include "ssd1306/ssd1306.h"
+#include "ssd1306/ssd1306_conf.h"
 
 extern UART_HandleTypeDef huart6;
 extern UART_HandleTypeDef huart1;
+extern I2C_HandleTypeDef hi2c1;
 
 
 
@@ -76,10 +79,10 @@ int app_main(void)
 	bme.delay_us = bme_delay_us;
 
 	int rc = bme280_soft_reset(&bme);
-	printf("bme280 reset rc = %d\n", (int)rc);
+	//printf("bme280 reset rc = %d\n", (int)rc);
 
 	rc = bme280_init(&bme);
-	printf("bme280 init rc = %d\n", (int)rc);
+	//printf("bme280 init rc = %d\n", (int)rc);
 
 	bme.settings.osr_h = BME280_OVERSAMPLING_1X;
 	bme.settings.osr_p = BME280_OVERSAMPLING_16X;
@@ -163,22 +166,19 @@ int app_main(void)
 	uint64_t gps_time_s;
 	uint32_t gps_time_us;
 
-
-
-
-
 	nrf24_spi_pins_sr_t nrf_pins_sr;
 	nrf_pins_sr.this = &shift_reg_r;
 	nrf_pins_sr.pos_CE = 0;
 	nrf_pins_sr.pos_CS = 1;
 	nrf24_lower_api_config_t nrf24;
+
 	nrf24_spi_init_sr(&nrf24, &hspi2, &nrf_pins_sr);
 
 	nrf24_mode_power_down(&nrf24);
 	nrf24_rf_config_t nrf_config;
 	nrf_config.data_rate = NRF24_DATARATE_250_KBIT;
 	nrf_config.tx_power = NRF24_TXPOWER_MINUS_0_DBM;
-	nrf_config.rf_channel = 30;
+	nrf_config.rf_channel = 88;
 	nrf24_setup_rf(&nrf24, &nrf_config);
 	nrf24_protocol_config_t nrf_protocol_config;
 	nrf_protocol_config.crc_size = NRF24_CRCSIZE_1BYTE;
@@ -208,9 +208,34 @@ int app_main(void)
 
 	nrf24_mode_standby(&nrf24);
 	nrf24_mode_tx(&nrf24);
+	uint8_t buf = 0xFF;
+	int comp = 0;
+	nrf24_fifo_status_t rx_status = NRF24_FIFO_EMPTY;
+	nrf24_fifo_status_t tx_status = NRF24_FIFO_EMPTY;
+	int counter = 0;
+
+	//Настройка экарана
+	void oled_draw1(){
+		ssd1306_Init(); // initialize the display
+		ssd1306_WriteString("CanSat", Font_11x18, White);
+		ssd1306_UpdateScreen();
+	}
+	void oled_draw2(){
+		ssd1306_Init(); // initialize the display
+		ssd1306_WriteString("Gravitsapa", Font_11x18, White);
+		ssd1306_UpdateScreen();
+		}
+	while(1){
+	oled_draw1();
+	HAL_Delay(300);
+	oled_draw2();
+	HAL_Delay(300);
+	 // update screen
+	}
 
 	while(1)
 	{
+
 		// Чтение данных из lsm6ds3
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 		int16_t temperature_raw;
@@ -231,7 +256,7 @@ int app_main(void)
 			gyro_dps[i] = lsm6ds3_from_fs2000dps_to_mdps(gyro_raw[i]) / 1000;
 		}
 
-//		 Вывод
+		 //Вывод
 //		printf(
 //			"t = %8.4f; acc = %10.4f,%10.4f,%10.4f; gyro=%10.4f,%10.4f,%10.4f" " ||| ", //\n",
 //			temperature_celsius,
@@ -240,12 +265,8 @@ int app_main(void)
 //		);
 
 
-		// Чтение данные из bme280
-		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-
-
-		nrf24_pipe_config_t pipe_config;
+//		 Чтение данные из bme280
+//		 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 		int16_t temperataure_raw_mag;
 		int16_t mag_raw[3];
@@ -299,11 +320,35 @@ int app_main(void)
 		};
 
 
+		//nrf
 
+//		if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2)== GPIO_PIN_RESET){
+//			nrf24_irq_get(&nrf24, &comp);
+//			nrf24_irq_clear(&nrf24, comp);
+//			nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
+//			if(tx_status == NRF24_FIFO_EMPTY){
+//				counter++;
+//				if(counter == 1){
+//					nrf24_fifo_write(&nrf24, &buf, sizeof(buf), false);
+//					counter = 0;
+//				}
+//
+//			}
+//		}
+		if (HAL_GetTick()-start_time_nrf >= 100)
+		{
+			nrf24_irq_get(&nrf24, &comp);
+			nrf24_irq_clear(&nrf24, comp);
+				nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
+				nrf24_fifo_flush_tx(&nrf24);
+				nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
+				counter++;
+				if(counter == 1){
+					nrf24_fifo_write(&nrf24, &buf, sizeof(buf), false);
+					counter = 0;
+				}
 
-
-		//nrf24_fifo_flush_tx(&nrf24);
-		//nrf24_fifo_write(&nrf24, (uint8_t *)buf, sizeof(buf), false);//32
+		}
 
 
 		gps_work();
