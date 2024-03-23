@@ -1,7 +1,7 @@
 #ifndef NRF24L01_PL_SRC_NRF24_LOWER_API_STM32_H_
 #define NRF24L01_PL_SRC_NRF24_LOWER_API_STM32_H_
 
-#include "../Shift_Register/shift_reg.h"
+#include "..//Shift_Register/shift_reg.h"
 #include <stm32f4xx_hal.h>
 #ifdef HAL_SPI_MODULE_ENABLED
 

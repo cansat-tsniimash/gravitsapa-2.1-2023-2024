@@ -16,6 +16,8 @@ extern UART_HandleTypeDef huart1;
 extern I2C_HandleTypeDef hi2c1;
 
 
+void nrf_dump_regs(nrf24_lower_api_config_t * lower);
+
 
 int _write(int file, char *ptr, int len)
 {
@@ -23,6 +25,17 @@ int _write(int file, char *ptr, int len)
   return 0;
 }
 
+//Настройка экарана
+void oled_draw1(){
+	ssd1306_Init(); // initialize the display
+	ssd1306_WriteString("CanSat", Font_11x18, White);
+	ssd1306_UpdateScreen();
+}
+void oled_draw2(){
+	ssd1306_Init(); // initialize the display
+	ssd1306_WriteString("Gravitsapa", Font_11x18, White);
+	ssd1306_UpdateScreen();
+}
 
 
 int app_main(void)
@@ -36,11 +49,13 @@ int app_main(void)
 	sr_sensor.latch_pin  = GPIO_PIN_1;
 	sr_sensor.oe_port = GPIOC;
 	sr_sensor.oe_pin = GPIO_PIN_13;
+	sr_sensor.value = 0;
 	shift_reg_init(&sr_sensor);
 	shift_reg_write_16(&sr_sensor, 0xffff);
 
 
 	shift_reg_t shift_reg_r = {};
+	shift_reg_r.bus = &hspi2;
 	shift_reg_r.latch_port = GPIOC;
 	shift_reg_r.latch_pin = GPIO_PIN_4;
 	shift_reg_r.oe_port = GPIOC;
@@ -58,7 +73,6 @@ int app_main(void)
 	ds18b20_set_config(&ds, 100, -100, DS18B20_RESOLUTION_12_BIT);
 	uint16_t temp_ds;
 	uint32_t start_time_ds = HAL_GetTick();
-	uint32_t start_time_nrf = HAL_GetTick();
 	bool crc_ok_ds = false;
 	float ds_temp;
 	ds18b20_start_conversion(&ds);
@@ -90,8 +104,6 @@ int app_main(void)
 	bme.settings.filter = BME280_FILTER_COEFF_16;
 	bme.settings.standby_time = BME280_STANDBY_TIME_0_5_MS;
 
-
-
 	uint8_t settings_sel;
 	settings_sel = BME280_OSR_PRESS_SEL;
 	settings_sel |= BME280_OSR_TEMP_SEL;
@@ -102,7 +114,6 @@ int app_main(void)
 	printf("bme280 settings set rc = %d\n", rc);
 	rc = bme280_set_sensor_mode(BME280_NORMAL_MODE, &bme);
 	printf("bme280 set sensor mode rc = %d\n", rc);
-
 
 	// Настройка lsm6ds3 =-=-=-=-=-=-=-=-=-=-=-=-
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -155,6 +166,7 @@ int app_main(void)
 	lis3mdl_data_rate_set(&handle, LIS3MDL_UHP_80Hz);
 	lis3mdl_temperature_meas_set(&handle, PROPERTY_ENABLE);
 	lis3mdl_operating_mode_set(&handle, LIS3MDL_CONTINUOUS_MODE);
+
 	//Настройка GPS
 	int64_t cookie;
 	int fix_;
@@ -165,7 +177,8 @@ int app_main(void)
 	__HAL_UART_ENABLE_IT(&huart6, UART_IT_ERR);
 	uint64_t gps_time_s;
 	uint32_t gps_time_us;
-
+	//натсрока nRF
+	uint32_t start_time_nrf = HAL_GetTick();
 	nrf24_spi_pins_sr_t nrf_pins_sr;
 	nrf_pins_sr.this = &shift_reg_r;
 	nrf_pins_sr.pos_CE = 0;
@@ -174,7 +187,7 @@ int app_main(void)
 
 	nrf24_spi_init_sr(&nrf24, &hspi2, &nrf_pins_sr);
 
-	nrf24_mode_power_down(&nrf24);
+	nrf24_mode_standby(&nrf24);
 	nrf24_rf_config_t nrf_config;
 	nrf_config.data_rate = NRF24_DATARATE_250_KBIT;
 	nrf_config.tx_power = NRF24_TXPOWER_MINUS_0_DBM;
@@ -190,16 +203,17 @@ int app_main(void)
 	nrf_protocol_config.auto_retransmit_delay = 0;
 	nrf24_setup_protocol(&nrf24, &nrf_protocol_config);
 	nrf24_pipe_set_tx_addr(&nrf24, 0x123456789a);
+	nrf24_irq_mask_set(&nrf24, NRF24_IRQ_TX_DR | NRF24_IRQ_MAX_RT);
 
 	nrf24_pipe_config_t pipe_config;
-		for (int i = 1; i < 6; i++)
-		{
-			pipe_config.address = 0xcfcfcfcfcf;
-			pipe_config.address = (pipe_config.address & ~((uint64_t)0xff << 32)) | ((uint64_t)(i + 7) << 32);
-			pipe_config.enable_auto_ack = false;
-			pipe_config.payload_size = -1;
-			nrf24_pipe_rx_start(&nrf24, i, &pipe_config);
-		}
+	for (int i = 1; i < 6; i++)
+	{
+		pipe_config.address = 0xcfcfcfcfcf;
+		pipe_config.address = (pipe_config.address & ~((uint64_t)0xff << 32)) | ((uint64_t)(i + 7) << 32);
+		pipe_config.enable_auto_ack = true;
+		pipe_config.payload_size = -1;
+		nrf24_pipe_rx_start(&nrf24, i, &pipe_config);
+	}
 
 	pipe_config.address = 0xafafafaf01;
 	pipe_config.enable_auto_ack = false;
@@ -207,31 +221,28 @@ int app_main(void)
 	nrf24_pipe_rx_start(&nrf24, 0, &pipe_config);
 
 	nrf24_mode_standby(&nrf24);
+	//nrf_dump_regs(&nrf24);
+
 	nrf24_mode_tx(&nrf24);
-	uint8_t buf = 0xFF;
+	uint8_t buf[32];
+	memset(buf, 0xAA, sizeof(buf));
 	int comp = 0;
 	nrf24_fifo_status_t rx_status = NRF24_FIFO_EMPTY;
 	nrf24_fifo_status_t tx_status = NRF24_FIFO_EMPTY;
 	int counter = 0;
 
-	//Настройка экарана
-	void oled_draw1(){
-		ssd1306_Init(); // initialize the display
-		ssd1306_WriteString("CanSat", Font_11x18, White);
-		ssd1306_UpdateScreen();
-	}
-	void oled_draw2(){
-		ssd1306_Init(); // initialize the display
-		ssd1306_WriteString("Gravitsapa", Font_11x18, White);
-		ssd1306_UpdateScreen();
-		}
-	while(1){
-	oled_draw1();
-	HAL_Delay(300);
-	oled_draw2();
-	HAL_Delay(300);
-	 // update screen
-	}
+	//Пакеты
+	pack3_t orient_pack;
+	orient_pack.num = 0;
+	pack3_t status_pack;
+	status_pack.num = 0;
+	pack1_t gps_pack;
+	gps_pack.num = 0;
+
+	orient_pack.flag = 0x10;
+	gps_pack.flag = 0x20;
+	status_pack.flag = 0x01;
+
 
 	while(1)
 	{
@@ -257,21 +268,21 @@ int app_main(void)
 		}
 
 		 //Вывод
-//		printf(
-//			"t = %8.4f; acc = %10.4f,%10.4f,%10.4f; gyro=%10.4f,%10.4f,%10.4f" " ||| ", //\n",
-//			temperature_celsius,
-//			acc_g[0], acc_g[1], acc_g[2],
-//			gyro_dps[0], gyro_dps[1], gyro_dps[2]
-//		);
+		printf(
+			"t = %8.4f; acc = %10.4f,%10.4f,%10.4f; gyro=%10.4f,%10.4f,%10.4f" " ||| ", //\n",
+			temperature_celsius,
+			acc_g[0], acc_g[1], acc_g[2],
+			gyro_dps[0], gyro_dps[1], gyro_dps[2]
+		);
 
 
 //		 Чтение данные из bme280
 //		 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
 		int16_t temperataure_raw_mag;
 		int16_t mag_raw[3];
 		float temperature_celsius_mag;
 		float mag[3];
+
 		lis3mdl_magnetic_raw_get(&handle, mag_raw);
 		lis3mdl_temperature_raw_get(&handle, &temperataure_raw_mag);
 		temperature_celsius_mag = lis3mdl_from_lsb_to_celsius(temperataure_raw_mag);
@@ -281,98 +292,60 @@ int app_main(void)
 
 		//ds reading
 		if (HAL_GetTick()-start_time_ds >= 750)
-				{
-					uint8_t buf[8];
-			        onewire_read_rom(&ds, buf);
-					ds18b20_read_raw_temperature(&ds, &temp_ds, &crc_ok_ds);
-					ds18b20_start_conversion(&ds);
-					start_time_ds = HAL_GetTick();
-					ds_temp = ((float)temp_ds) / 16;
-				}
+		{
+			uint8_t buf[8];
+			onewire_read_rom(&ds, buf);
+			ds18b20_read_raw_temperature(&ds, &temp_ds, &crc_ok_ds);
+			ds18b20_start_conversion(&ds);
+			start_time_ds = HAL_GetTick();
+			ds_temp = ((float)temp_ds) / 16;
+		}
 
 
-
-
-
+		//Включение лампочек при присутствии данных на датчиках
 		struct bme280_data comp_data;
 		rc = bme280_get_sensor_data(BME280_ALL, &comp_data, &bme);
-//
-		if (comp_data.temperature != 0){
+
+		if (comp_data.temperature != 0)
 			shift_reg_write_bit_16(&sr_sensor, 9, true);
-			HAL_Delay(300);
-			shift_reg_write_bit_16(&sr_sensor, 9, false);
-			HAL_Delay(300);
-		};
 
-		if (acc_g != 0){
+		if (acc_g != 0)
 			shift_reg_write_bit_16(&sr_sensor, 10, true);
-			HAL_Delay(300);
-			shift_reg_write_bit_16(&sr_sensor, 10, false);
-			HAL_Delay(300);
-		};
 
 
-		if (mag != 0){
+		if (mag != 0)
 			shift_reg_write_bit_16(&sr_sensor, 11, true);
-			HAL_Delay(300);
-			shift_reg_write_bit_16(&sr_sensor, 11, false);
-			HAL_Delay(300);
-		};
 
 
 		//nrf
+		const int irq_on_pin = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == GPIO_PIN_RESET;
 
-//		if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2)== GPIO_PIN_RESET){
-//			nrf24_irq_get(&nrf24, &comp);
-//			nrf24_irq_clear(&nrf24, comp);
-//			nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
-//			if(tx_status == NRF24_FIFO_EMPTY){
-//				counter++;
-//				if(counter == 1){
-//					nrf24_fifo_write(&nrf24, &buf, sizeof(buf), false);
-//					counter = 0;
-//				}
-//
-//			}
-//		}
-		if (HAL_GetTick()-start_time_nrf >= 100)
+		if (HAL_GetTick()-start_time_nrf >= 100 || irq_on_pin)
 		{
 			nrf24_irq_get(&nrf24, &comp);
 			nrf24_irq_clear(&nrf24, comp);
-				nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
-				nrf24_fifo_flush_tx(&nrf24);
-				nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
-				counter++;
-				if(counter == 1){
-					nrf24_fifo_write(&nrf24, &buf, sizeof(buf), false);
-					counter = 0;
-				}
+			nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
 
+			if(tx_status != NRF24_FIFO_FULL){
+				nrf24_fifo_write(&nrf24, buf, sizeof(buf), true);
+				start_time_nrf = HAL_GetTick();
+			}
 		}
 
-
+		//GPS
 		gps_work();
 		gps_get_coords(&cookie, &lat, &lon, &alt, &fix_);
 		gps_get_time(&cookie, &gps_time_s, &gps_time_us);
-		if (fix_ < 3 ){
-			shift_reg_write_bit_16(&sr_sensor, 8, true);
-			HAL_Delay(300);
-			shift_reg_write_bit_16(&sr_sensor, 8, false);
-			HAL_Delay(300);
-			};
-		if(fix_ > 0){
+
+		if(fix_ > 0)
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 1);
-			HAL_Delay(500);
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 0);
-			HAL_Delay(500);
-		}
+
 	    // Печать
-		  printf("FIX = %1d ,lat = %2.8f; lon = %2.8f; alt = %2.8f\r\n", (int)fix_, (float)lat, (float)lon, (float)alt);
+		  printf(
+				  "cookie = %d, FIX = %1d ,lat = %2.8f; lon = %2.8f; alt = %2.8f\r\n",
+				  (int)cookie, (int)fix_, (float)lat, (float)lon, (float)alt
+		  );
 
-
-
-
-		//HAL_Delay(100);
 
 	}
 

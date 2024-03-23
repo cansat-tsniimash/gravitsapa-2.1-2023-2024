@@ -18,6 +18,7 @@
 #include "bme/bme.h"
 #include "lsm/lsm.h"
 #include "lis/lis.h"
+#include "structs.h"
 
 struct spi_sr_bus
 {
