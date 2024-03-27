@@ -37,6 +37,22 @@ void oled_draw2(){
 	ssd1306_UpdateScreen();
 }
 
+//crc count
+uint16_t Crc16(uint8_t *buf, uint16_t len) {
+uint16_t crc = 0xFFFF;
+	while (len--) {
+		crc ^= *buf++ << 8;
+		for (uint8_t i = 0; i < 8; i++)
+			crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+	}
+	return crc;
+}
+
+typedef enum
+{
+	STATE_GEN_PACK_1_3_2 = 1,
+	STATE_WAIT = 2,
+} state_nrf_t;
 
 int app_main(void)
 {
@@ -171,7 +187,6 @@ int app_main(void)
 	int64_t cookie;
 	int fix_;
 	float lon, lat, alt;
-	uint64_t gps_buf;
 	gps_init();
 	__HAL_UART_ENABLE_IT(&huart6, UART_IT_RXNE);
 	__HAL_UART_ENABLE_IT(&huart6, UART_IT_ERR);
@@ -234,7 +249,7 @@ int app_main(void)
 	//Пакеты
 	pack3_t orient_pack;
 	orient_pack.num = 0;
-	pack3_t status_pack;
+	pack2_t status_pack;
 	status_pack.num = 0;
 	pack1_t gps_pack;
 	gps_pack.num = 0;
@@ -243,6 +258,8 @@ int app_main(void)
 	gps_pack.flag = 0x20;
 	status_pack.flag = 0x01;
 
+	state_nrf_t state_nrf;
+	state_nrf = STATE_GEN_PACK_1_3_2;
 
 	while(1)
 	{
@@ -290,19 +307,19 @@ int app_main(void)
 			(mag)[i] = lis3mdl_from_fs16_to_gauss(mag_raw[i]);
 		};
 
-		//ds reading
-		if (HAL_GetTick()-start_time_ds >= 750)
-		{
-			uint8_t buf[8];
-			onewire_read_rom(&ds, buf);
-			ds18b20_read_raw_temperature(&ds, &temp_ds, &crc_ok_ds);
-			ds18b20_start_conversion(&ds);
-			start_time_ds = HAL_GetTick();
-			ds_temp = ((float)temp_ds) / 16;
-		}
+//		//ds reading
+//		if (HAL_GetTick()-start_time_ds >= 750)
+//		{
+//			uint8_t buf[8];
+//			onewire_read_rom(&ds, buf);
+//			ds18b20_read_raw_temperature(&ds, &temp_ds, &crc_ok_ds);
+//			ds18b20_start_conversion(&ds);
+//			start_time_ds = HAL_GetTick();
+//			ds_temp = ((float)temp_ds) / 16;
+//		}
 
 
-		//Включение лампочек при присутствии данных на датчиках
+		//Включение лампочек при наличии данных на датчиках
 		struct bme280_data comp_data;
 		rc = bme280_get_sensor_data(BME280_ALL, &comp_data, &bme);
 
@@ -318,19 +335,19 @@ int app_main(void)
 
 
 		//nrf
-		const int irq_on_pin = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == GPIO_PIN_RESET;
+//		const int irq_on_pin = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2) == GPIO_PIN_RESET;
 
-		if (HAL_GetTick()-start_time_nrf >= 100 || irq_on_pin)
-		{
-			nrf24_irq_get(&nrf24, &comp);
-			nrf24_irq_clear(&nrf24, comp);
-			nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
-
-			if(tx_status != NRF24_FIFO_FULL){
-				nrf24_fifo_write(&nrf24, buf, sizeof(buf), true);
-				start_time_nrf = HAL_GetTick();
-			}
-		}
+//		if (HAL_GetTick()-start_time_nrf >= 100 || irq_on_pin)
+//		{
+//			nrf24_irq_get(&nrf24, &comp);
+//			nrf24_irq_clear(&nrf24, comp);
+//			nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
+//
+//			if(tx_status != NRF24_FIFO_FULL){
+//				nrf24_fifo_write(&nrf24, buf, sizeof(buf), true);
+//				start_time_nrf = HAL_GetTick();
+//			}
+//		}
 
 		//GPS
 		gps_work();
@@ -341,12 +358,82 @@ int app_main(void)
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 1);
 
 	    // Печать
-		  printf(
-				  "cookie = %d, FIX = %1d ,lat = %2.8f; lon = %2.8f; alt = %2.8f\r\n",
+		printf(
+		          "cookie = %d, FIX = %1d ,lat = %2.8f; lon = %2.8f; alt = %2.8f\r\n",
 				  (int)cookie, (int)fix_, (float)lat, (float)lon, (float)alt
-		  );
+		);
+
+		status_pack.bmp_temp = comp_data.temperature * 100;
+		status_pack.bmp_press = comp_data.pressure;
+		  //status_pack.fhotorez = lux;
+
+		gps_pack.lat = lat;
+		gps_pack.lon = lon;
+		gps_pack.alt = alt;
+		gps_pack.gps_time_s = gps_time_s;
+		gps_pack.gps_time_us = gps_time_us;
+		gps_pack.fix = fix_;
 
 
+		for (int i = 0; i < 3; i++){
+			orient_pack.accl[i] = acc_g[i]*1000;
+			orient_pack.gyro[i] = gyro_dps[i]*1000;
+			orient_pack.mag[i] = mag[i]*1000;
+		}
+		if (HAL_GetTick()-start_time_ds >= 750){
+			ds18b20_read_raw_temperature(&ds, &temp_ds, &crc_ok_ds);
+			ds18b20_start_conversion(&ds);
+			start_time_ds = HAL_GetTick();
+			status_pack.ds_temp = ((float)temp_ds * 10) / 16;
+		}
+
+		switch(state_nrf)
+		{
+			case STATE_GEN_PACK_1_3_2:
+				gps_pack.time_ms = HAL_GetTick();
+				gps_pack.num += 1;
+				gps_pack.crc = Crc16((uint8_t *)&gps_pack, sizeof(gps_pack) - 2);
+
+				orient_pack.time_ms = HAL_GetTick();
+				orient_pack.num += 1;
+				orient_pack.crc = Crc16((uint8_t *)&orient_pack, sizeof(orient_pack) - 2);// <<------pack
+
+				status_pack.time_ms = HAL_GetTick();
+				status_pack.num += 1;
+				status_pack.crc = Crc16((uint8_t *)&status_pack, sizeof(status_pack) - 2);
+
+				//nrf24_fifo_flush_tx(&nrf24);
+				nrf24_fifo_write(&nrf24, (uint8_t *)&gps_pack, sizeof(gps_pack), false);//32
+				nrf24_fifo_write(&nrf24, (uint8_t *)&orient_pack, sizeof(orient_pack), false);
+				nrf24_fifo_write(&nrf24, (uint8_t *)&status_pack, sizeof(status_pack), false);
+
+				start_time_nrf = HAL_GetTick();
+
+
+				state_nrf = STATE_WAIT;
+				break;
+			case STATE_WAIT:
+				if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2)== GPIO_PIN_RESET)
+				{
+					nrf24_irq_get(&nrf24, &comp);
+					nrf24_irq_clear(&nrf24, comp);
+					nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
+					if(tx_status == NRF24_FIFO_EMPTY)
+					{
+						counter++;
+						state_nrf = STATE_GEN_PACK_1_3_2;
+					}
+				}
+				if (HAL_GetTick()-start_time_nrf >= 100)
+				{
+					nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
+					nrf24_fifo_flush_tx(&nrf24);
+					nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
+					state_nrf = STATE_GEN_PACK_1_3_2;
+				}
+
+				break;
+		}
 	}
 
 	return 0;

@@ -12,7 +12,7 @@
 
 #pragma pack(push,1) //<-------
 //структурки пакетиков
-// 27 byte
+// 13 byte
 typedef struct{
 	uint8_t flag;
 	uint16_t num;
@@ -21,9 +21,9 @@ typedef struct{
 	int16_t gyro[3];
 	int16_t mag[3];
 	uint16_t crc;
-}pack1_t;
+}pack3_t;
 
-//20byte
+//22byte
 typedef struct{
 	uint8_t flag;
 	uint16_t num;
@@ -31,39 +31,27 @@ typedef struct{
 	uint16_t bmp_temp;
 	uint32_t bmp_press;
 	uint16_t fhotorez;
+	int16_t ds_temp;
 	uint16_t status;
 	uint8_t find;
 	uint16_t crc;
-}pack3_t;
+}pack2_t;
 
-//32 byte
+//30 byte
 typedef struct{
 	uint8_t flag;
 	uint16_t num;
 	uint32_t time_ms;
 	uint32_t gps_time_s;
 	uint32_t gps_time_us;
-	int16_t ds_temp;
 	float lat;
 	float lon;
 	float alt;
 	int8_t fix;
 	uint16_t crc;
-}pack2_t;
+}pack1_t;
 
-typedef struct
-{
-	uint8_t flag;
-	uint16_t num;
-	uint16_t time_s;
-	float lat;
-	float lon;
-	float alt;
-	uint32_t gps_time_s;
-	uint32_t gps_time_us;
-	int8_t fix;
-	uint16_t crc;
-} nrf_pack_t;
+
 #pragma pack(pop)
 
 #endif /* STRUCTS_H_ */
