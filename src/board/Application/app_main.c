@@ -52,6 +52,7 @@ typedef enum
 {
 	STATE_GEN_PACK_1_3_2 = 1,
 	STATE_WAIT = 2,
+	STATE_GEN_PACK_OTHR = 3
 } state_nrf_t;
 
 int app_main(void)
@@ -185,12 +186,12 @@ int app_main(void)
 
 	//Настройка GPS
 	int64_t cookie;
-	int fix_;
+	int8_t fix_;
 	float lon, lat, alt;
 	gps_init();
 	__HAL_UART_ENABLE_IT(&huart6, UART_IT_RXNE);
 	__HAL_UART_ENABLE_IT(&huart6, UART_IT_ERR);
-	uint64_t gps_time_s;
+	uint32_t gps_time_s;
 	uint32_t gps_time_us;
 	//натсрока nRF
 	uint32_t start_time_nrf = HAL_GetTick();
@@ -254,12 +255,14 @@ int app_main(void)
 	pack1_t gps_pack;
 	gps_pack.num = 0;
 
-	orient_pack.flag = 0x10;
+	orient_pack.flag = 0x30;
 	gps_pack.flag = 0x20;
 	status_pack.flag = 0x01;
 
 	state_nrf_t state_nrf;
 	state_nrf = STATE_GEN_PACK_1_3_2;
+	state_nrf = STATE_WAIT;
+	state_nrf = STATE_GEN_PACK_OTHR;
 
 	while(1)
 	{
@@ -275,8 +278,8 @@ int app_main(void)
 
 		// Пересчет из попугаев в человеческие величины
 		float temperature_celsius;
-		float acc_g[3];
-		float gyro_dps[3];
+		int16_t acc_g[3];
+		int16_t gyro_dps[3];
 		temperature_celsius = lsm6ds3_from_lsb_to_celsius(temperature_raw);
 		for (int i = 0; i < 3; i++)
 		{
@@ -298,7 +301,7 @@ int app_main(void)
 		int16_t temperataure_raw_mag;
 		int16_t mag_raw[3];
 		float temperature_celsius_mag;
-		float mag[3];
+		int16_t mag[3];
 
 		lis3mdl_magnetic_raw_get(&handle, mag_raw);
 		lis3mdl_temperature_raw_get(&handle, &temperataure_raw_mag);
@@ -390,9 +393,6 @@ int app_main(void)
 		switch(state_nrf)
 		{
 			case STATE_GEN_PACK_1_3_2:
-				gps_pack.time_ms = HAL_GetTick();
-				gps_pack.num += 1;
-				gps_pack.crc = Crc16((uint8_t *)&gps_pack, sizeof(gps_pack) - 2);
 
 				orient_pack.time_ms = HAL_GetTick();
 				orient_pack.num += 1;
@@ -403,15 +403,30 @@ int app_main(void)
 				status_pack.crc = Crc16((uint8_t *)&status_pack, sizeof(status_pack) - 2);
 
 				//nrf24_fifo_flush_tx(&nrf24);
-				nrf24_fifo_write(&nrf24, (uint8_t *)&gps_pack, sizeof(gps_pack), false);//32
-				nrf24_fifo_write(&nrf24, (uint8_t *)&orient_pack, sizeof(orient_pack), false);
 				nrf24_fifo_write(&nrf24, (uint8_t *)&status_pack, sizeof(status_pack), false);
+				nrf24_fifo_write(&nrf24, (uint8_t *)&orient_pack, sizeof(orient_pack), false);
+
 
 				start_time_nrf = HAL_GetTick();
 
-
 				state_nrf = STATE_WAIT;
 				break;
+
+			case STATE_GEN_PACK_OTHR:
+
+					gps_pack.time_ms = HAL_GetTick();
+					gps_pack.num += 1;
+					gps_pack.crc = Crc16((uint8_t *)&gps_pack, sizeof(gps_pack) - 2);
+
+					nrf24_fifo_write(&nrf24, (uint8_t *)&gps_pack, sizeof(gps_pack), false);//32
+					//nrf24_fifo_flush_tx(&nrf24)
+
+					start_time_nrf = HAL_GetTick();
+
+
+					state_nrf = STATE_WAIT;
+					break;
+
 			case STATE_WAIT:
 				if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2)== GPIO_PIN_RESET)
 				{
@@ -421,7 +436,15 @@ int app_main(void)
 					if(tx_status == NRF24_FIFO_EMPTY)
 					{
 						counter++;
-						state_nrf = STATE_GEN_PACK_1_3_2;
+						if(counter == 10)
+						{
+							state_nrf = STATE_GEN_PACK_OTHR;
+							counter = 0;
+						}
+						else
+						{
+							state_nrf = STATE_GEN_PACK_1_3_2;
+						}
 					}
 				}
 				if (HAL_GetTick()-start_time_nrf >= 100)
