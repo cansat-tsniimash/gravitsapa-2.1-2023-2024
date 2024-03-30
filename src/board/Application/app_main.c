@@ -33,8 +33,30 @@ void oled_draw1(){
 }
 void oled_draw2(){
 	ssd1306_Init(); // initialize the display
-	ssd1306_WriteString("Gravitsapa", Font_11x18, White);
+	ssd1306_Reset();
+	ssd1306_Fill(White);
 	ssd1306_UpdateScreen();
+	ssd1306_WriteString("Gravitsapa", Font_11x18, Black);
+	ssd1306_UpdateScreen();
+}
+
+void oled_circle()
+{
+	ssd1306_Init();
+	for (int i = 1; i < 32; i++)
+	{
+		ssd1306_FillCircle(64, 32, i, White);
+		ssd1306_UpdateScreen();
+
+	}
+
+	HAL_Delay(500);
+	ssd1306_Reset();
+	ssd1306_Fill(White);
+	ssd1306_UpdateScreen();
+	ssd1306_WriteString("Gravitsapa", Font_11x18, Black);
+	ssd1306_UpdateScreen();
+	HAL_Delay(900);
 }
 
 //crc count
@@ -50,9 +72,10 @@ uint16_t crc = 0xFFFF;
 
 typedef enum
 {
-	STATE_GEN_PACK_1_3_2 = 1,
+	STATE_GEN_PACK_ORIENT = 1,
 	STATE_WAIT = 2,
-	STATE_GEN_PACK_OTHR = 3
+	STATE_GEN_PACK_GPS = 3,
+	STATE_GEN_PACK_STATUS = 4
 } state_nrf_t;
 
 int app_main(void)
@@ -260,13 +283,21 @@ int app_main(void)
 	status_pack.flag = 0x01;
 
 	state_nrf_t state_nrf;
-	state_nrf = STATE_GEN_PACK_1_3_2;
+	state_nrf = STATE_GEN_PACK_GPS;
 	state_nrf = STATE_WAIT;
-	state_nrf = STATE_GEN_PACK_OTHR;
+	state_nrf = STATE_GEN_PACK_ORIENT;
+	state_nrf = STATE_GEN_PACK_STATUS;
+	//		oled_draw1();
+	//		HAL_Delay(100);
+	//		oled_draw2();
+	//		HAL_Delay(100);
+
 
 	while(1)
 	{
-
+		oled_circle();
+		//HAL_Delay(100);
+		//oled_draw2();
 		// Чтение данных из lsm6ds3
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 		int16_t temperature_raw;
@@ -392,11 +423,8 @@ int app_main(void)
 
 		switch(state_nrf)
 		{
-			case STATE_GEN_PACK_1_3_2:
+			case STATE_GEN_PACK_STATUS:
 
-				orient_pack.time_ms = HAL_GetTick();
-				orient_pack.num += 1;
-				orient_pack.crc = Crc16((uint8_t *)&orient_pack, sizeof(orient_pack) - 2);// <<------pack
 
 				status_pack.time_ms = HAL_GetTick();
 				status_pack.num += 1;
@@ -404,7 +432,7 @@ int app_main(void)
 
 				//nrf24_fifo_flush_tx(&nrf24);
 				nrf24_fifo_write(&nrf24, (uint8_t *)&status_pack, sizeof(status_pack), false);
-				nrf24_fifo_write(&nrf24, (uint8_t *)&orient_pack, sizeof(orient_pack), false);
+
 
 
 				start_time_nrf = HAL_GetTick();
@@ -412,7 +440,7 @@ int app_main(void)
 				state_nrf = STATE_WAIT;
 				break;
 
-			case STATE_GEN_PACK_OTHR:
+			case STATE_GEN_PACK_GPS:
 
 					gps_pack.time_ms = HAL_GetTick();
 					gps_pack.num += 1;
@@ -427,6 +455,22 @@ int app_main(void)
 					state_nrf = STATE_WAIT;
 					break;
 
+			case STATE_GEN_PACK_ORIENT:
+
+					orient_pack.time_ms = HAL_GetTick();
+					orient_pack.num += 1;
+					orient_pack.crc = Crc16((uint8_t *)&orient_pack, sizeof(orient_pack) - 2);// <<------pack
+
+					nrf24_fifo_write(&nrf24, (uint8_t *)&orient_pack, sizeof(orient_pack), false);
+					//nrf24_fifo_flush_tx(&nrf24)
+
+					start_time_nrf = HAL_GetTick();
+
+
+					state_nrf = STATE_WAIT;
+					break;
+
+
 			case STATE_WAIT:
 				if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_2)== GPIO_PIN_RESET)
 				{
@@ -438,12 +482,12 @@ int app_main(void)
 						counter++;
 						if(counter == 10)
 						{
-							state_nrf = STATE_GEN_PACK_OTHR;
+							state_nrf = STATE_GEN_PACK_GPS;
 							counter = 0;
 						}
 						else
 						{
-							state_nrf = STATE_GEN_PACK_1_3_2;
+							state_nrf = STATE_GEN_PACK_ORIENT && STATE_GEN_PACK_STATUS;
 						}
 					}
 				}
@@ -452,7 +496,9 @@ int app_main(void)
 					nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
 					nrf24_fifo_flush_tx(&nrf24);
 					nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
-					state_nrf = STATE_GEN_PACK_1_3_2;
+					state_nrf = STATE_GEN_PACK_GPS;
+					state_nrf = STATE_GEN_PACK_ORIENT;
+					state_nrf = STATE_GEN_PACK_STATUS;
 				}
 
 				break;
