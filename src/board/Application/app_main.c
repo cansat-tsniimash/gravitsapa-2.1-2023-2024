@@ -25,20 +25,20 @@ int _write(int file, char *ptr, int len)
   return 0;
 }
 
-//Настройка экарана
-void oled_draw1(){
-	ssd1306_Init(); // initialize the display
-	ssd1306_WriteString("CanSat", Font_11x18, White);
-	ssd1306_UpdateScreen();
-}
-void oled_draw2(){
-	ssd1306_Init(); // initialize the display
-	ssd1306_Reset();
-	ssd1306_Fill(White);
-	ssd1306_UpdateScreen();
-	ssd1306_WriteString("Gravitsapa", Font_11x18, Black);
-	ssd1306_UpdateScreen();
-}
+////Настройка экарана
+//void oled_draw1(){
+//	ssd1306_Init(); // initialize the display
+//	ssd1306_WriteString("CanSat", Font_11x18, White);
+//	ssd1306_UpdateScreen();
+//}
+//void oled_draw2(){
+//	ssd1306_Init(); // initialize the display
+//	ssd1306_Reset();
+//	ssd1306_Fill(White);
+//	ssd1306_UpdateScreen();
+//	ssd1306_WriteString("Gravitsapa", Font_11x18, Black);
+//	ssd1306_UpdateScreen();
+//}
 
 void oled_circle()
 {
@@ -82,6 +82,7 @@ int app_main(void)
 {
 	extern SPI_HandleTypeDef hspi2;
 
+
 	//Настройка SR
 	shift_reg_t sr_sensor = {};
 	sr_sensor.bus = &hspi2;
@@ -116,6 +117,48 @@ int app_main(void)
 	bool crc_ok_ds = false;
 	float ds_temp;
 	ds18b20_start_conversion(&ds);
+	//Настройка SD
+	FATFS fileSystem; // переменная типа FATFS
+	FIL File1; // хендлер файла
+	FIL File2;
+	FIL File3;
+	FIL File_bin;
+	FRESULT res3 = 255;
+	FRESULT res2 = 255;
+	FRESULT res1 = 255;
+	FRESULT res_bin = 255;
+	FRESULT megares = 255;
+	const char path1[] = "packet1.csv";
+	const char path2[] = "packet2.csv";
+	const char path3[] = "packet3.csv";
+	const char path_bin[] = "packet.bin";
+	memset(&fileSystem, 0x00, sizeof(fileSystem));
+	FRESULT is_mount = 0;
+	extern Disk_drvTypeDef disk;
+	disk.is_initialized[0] = 0;
+	is_mount = f_mount(&fileSystem, "", 1);
+	if(is_mount == FR_OK) { // монтируете файловую систему по пути SDPath, проверяете, что она смонтировалась, только при этом условии начинаете с ней работать
+			res1 = f_open(&File1, (char*)path1, FA_WRITE | FA_CREATE_ALWAYS); // открытие файла, обязательно для работы с ним
+			f_puts("flag; num; time_ms; bme_temp; bme_press; photorez; ds_temp; status; find; crc\n", &File1);
+			res1 = f_sync(&File1);
+		}
+	if(is_mount == FR_OK) { // монтируете файловую систему по пути SDPath, проверяете, что она смонтировалась, только при этом условии начинаете с ней работать
+		res2 = f_open(&File2, (char*)path2, FA_WRITE | FA_CREATE_ALWAYS); // открытие файла, обязательно для работы с ним
+		f_puts("flag; num; time_ms; accl_x; accl_y; accl_z; gyro_x; gyro_y; gyro_z; mag_x; mag_y; mag_z; crc\n", &File2);
+		res2 = f_sync(&File2);
+	}
+
+	if(is_mount == FR_OK) { // монтируете файловую систему по пути SDPath, проверяете, что она смонтировалась, только при этом условии начинаете с ней работать
+		res3 = f_open(&File3, (char*)path3, FA_WRITE | FA_CREATE_ALWAYS); // открытие файла, обязательно для работы с ним
+		f_puts("flag; num; time_ms; gps_time_s; gps_time_us; lat; lon; alt; fix; crc\n", &File3);
+		res3 = f_sync(&File3);
+	}
+	if(is_mount == FR_OK) { // монтируете файловую систему по пути SDPath, проверяете, что она смонтировалась, только при этом условии начинаете с ней работать
+		res_bin = f_open(&File_bin, (char*)path_bin, FA_WRITE | FA_CREATE_ALWAYS); // открытие файла, обязательно для работы с ним
+	}
+	uint32_t start_time_sd = HAL_GetTick();
+	uint16_t str_wr;
+	UINT Bytes;
 
 	// Настройка bme280 =-=-=-=-=-=-=-=-=-=-=-=-
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -291,7 +334,7 @@ int app_main(void)
 	//		HAL_Delay(100);
 	//		oled_draw2();
 	//		HAL_Delay(100);
-
+	char str_buf[300];
 
 	while(1)
 	{
@@ -319,12 +362,12 @@ int app_main(void)
 		}
 
 		 //Вывод
-		printf(
-			"t = %8.4f; acc = %10.4f,%10.4f,%10.4f; gyro=%10.4f,%10.4f,%10.4f" " ||| ", //\n",
-			temperature_celsius,
-			acc_g[0], acc_g[1], acc_g[2],
-			gyro_dps[0], gyro_dps[1], gyro_dps[2]
-		);
+//		printf(
+//			"t = %8.4f; acc = %10.4f,%10.4f,%10.4f; gyro=%10.4f,%10.4f,%10.4f" " ||| ", //\n",
+//			temperature_celsius,
+//			acc_g[0], acc_g[1], acc_g[2],
+//			gyro_dps[0], gyro_dps[1], gyro_dps[2]
+//		);
 
 
 //		 Чтение данные из bme280
@@ -437,6 +480,14 @@ int app_main(void)
 
 				start_time_nrf = HAL_GetTick();
 
+				if(res1 == FR_OK){
+
+					res1 = f_write(&File1, str_buf, 300, &Bytes); // отправка на запись в файл
+				}
+
+				if(res_bin == FR_OK){
+					res_bin = f_write(&File_bin, (uint8_t*)&status_pack, sizeof(status_pack), &Bytes); // отправка на запись в файл
+				}
 				state_nrf = STATE_WAIT;
 				break;
 
@@ -450,6 +501,14 @@ int app_main(void)
 					//nrf24_fifo_flush_tx(&nrf24)
 
 					start_time_nrf = HAL_GetTick();
+					if(res1 == FR_OK){
+						str_wr = sd_parse_to_bytes_pack1(str_buf, &gps_pack);
+						res2 = f_write(&File1, str_buf, str_wr, &Bytes); // отправка на запись в файл
+					}
+
+					if(res_bin == FR_OK){
+						res_bin = f_write(&File_bin, (uint8_t*)&gps_pack, sizeof(gps_pack), &Bytes); // отправка на запись в файл
+					}
 
 
 					state_nrf = STATE_WAIT;
@@ -465,7 +524,13 @@ int app_main(void)
 					//nrf24_fifo_flush_tx(&nrf24)
 
 					start_time_nrf = HAL_GetTick();
+					if(res2 == FR_OK){
+						res2 = f_write(&File2, str_buf, str_wr, &Bytes); // отправка на запись в файл
+					}
 
+					if(res2 == FR_OK){
+						res_bin = f_write(&File_bin, (uint8_t*)&orient_pack, sizeof(orient_pack), &Bytes); // отправка на запись в файл
+					}
 
 					state_nrf = STATE_WAIT;
 					break;
@@ -503,6 +568,52 @@ int app_main(void)
 
 				break;
 		}
+		if (HAL_GetTick()-start_time_sd >= 20)
+				{
+					megares = FR_OK;
+
+					if (is_mount == FR_OK)
+					{
+						if(res1 != FR_OK){
+							f_close(&File1);
+							megares = f_open(&File1, (char*)path1, FA_WRITE | FA_OPEN_APPEND);
+						}
+						if(res2 != FR_OK && megares == FR_OK){
+							f_close(&File2);
+							megares = f_open(&File2, (char*)path2, FA_WRITE | FA_OPEN_APPEND);
+						}
+						if(res3 != FR_OK && megares == FR_OK){
+							f_close(&File3);
+							megares = f_open(&File3, (char*)path3, FA_WRITE | FA_OPEN_APPEND);
+						}
+
+						if(res_bin != FR_OK && megares == FR_OK){
+							f_close(&File_bin);
+							megares = f_open(&File_bin, (char*)path_bin, FA_WRITE | FA_OPEN_APPEND);
+						}
+					}
+					if(megares != FR_OK || is_mount != FR_OK){
+						//shift_reg_write_bit_16(&shift_reg_r, 9, false);
+						f_mount(0, "0", 1);
+						extern Disk_drvTypeDef disk;
+						disk.is_initialized[0] = 0;
+						is_mount = f_mount(&fileSystem, "", 1);
+						res1 = f_open(&File1, (char*)path1, FA_WRITE | FA_OPEN_APPEND);
+						res2 = f_open(&File2, (char*)path2, FA_WRITE | FA_OPEN_APPEND);
+						res3 = f_open(&File3, (char*)path3, FA_WRITE | FA_OPEN_APPEND);
+						res_bin = f_open(&File_bin, (char*)path_bin, FA_WRITE | FA_OPEN_APPEND);
+					}
+					else
+					{
+						//shift_reg_write_bit_16(&shift_reg_r, 9, true);
+						res1 = f_sync(&File1); // запись в файл (на sd контроллер пишет не сразу, а по закрытии файла. Также можно использовать эту команду)
+						res2 = f_sync(&File2); // запись в файл (на sd контроллер пишет не сразу, а по закрытии файла. Также можно использовать эту команду)
+						res3 = f_sync(&File3); // запись в файл (на sd контроллер пишет не сразу, а по закрытии файла. Также можно использовать эту команду)
+						res_bin = f_sync(&File_bin); // запись в файл (на sd контроллер пишет не сразу, а по закрытии файла. Также можно использовать эту команду)
+					}
+					start_time_sd = HAL_GetTick();
+				}
+
 	}
 
 	return 0;
