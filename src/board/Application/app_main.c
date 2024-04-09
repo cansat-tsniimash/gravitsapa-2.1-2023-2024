@@ -480,9 +480,9 @@ int app_main(void)
 
 				start_time_nrf = HAL_GetTick();
 
-				if(res1 == FR_OK){
-
-					res1 = f_write(&File1, str_buf, 300, &Bytes); // отправка на запись в файл
+				if(res2 == FR_OK){
+					str_wr = sd_parse_to_bytes_pack2(str_buf, &status_pack);
+					res2 = f_write(&File2, str_buf, 300, &Bytes); // отправка на запись в файл
 				}
 
 				if(res_bin == FR_OK){
@@ -503,7 +503,7 @@ int app_main(void)
 					start_time_nrf = HAL_GetTick();
 					if(res1 == FR_OK){
 						str_wr = sd_parse_to_bytes_pack1(str_buf, &gps_pack);
-						res2 = f_write(&File1, str_buf, str_wr, &Bytes); // отправка на запись в файл
+						res1 = f_write(&File1, str_buf, str_wr, &Bytes); // отправка на запись в файл
 					}
 
 					if(res_bin == FR_OK){
@@ -524,11 +524,12 @@ int app_main(void)
 					//nrf24_fifo_flush_tx(&nrf24)
 
 					start_time_nrf = HAL_GetTick();
-					if(res2 == FR_OK){
-						res2 = f_write(&File2, str_buf, str_wr, &Bytes); // отправка на запись в файл
+					if(res3 == FR_OK){
+						str_wr = sd_parse_to_bytes_pack2(str_buf, &orient_pack);
+						res3 = f_write(&File3, str_buf, str_wr, &Bytes); // отправка на запись в файл
 					}
 
-					if(res2 == FR_OK){
+					if(res_bin == FR_OK){
 						res_bin = f_write(&File_bin, (uint8_t*)&orient_pack, sizeof(orient_pack), &Bytes); // отправка на запись в файл
 					}
 
