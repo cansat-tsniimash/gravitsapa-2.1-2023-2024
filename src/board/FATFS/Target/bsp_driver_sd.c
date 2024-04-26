@@ -11,7 +11,7 @@
  ******************************************************************************
   * @attention
   *
-  * Copyright (c) 2023 STMicroelectronics.
+  * Copyright (c) 2024 STMicroelectronics.
   * All rights reserved.
   *
   * This software is licensed under terms that can be found in the LICENSE file
@@ -294,9 +294,10 @@ __weak uint8_t BSP_SD_IsDetected(void)
 {
   __IO uint8_t status = SD_PRESENT;
 
-  /* USER CODE BEGIN 1 */
-  /* user code can be inserted here */
-  /* USER CODE END 1 */
+  if (BSP_PlatformIsDetected() == 0x0)
+  {
+    status = SD_NOT_PRESENT;
+  }
 
   return status;
 }

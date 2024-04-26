@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stm32f4xx_hal.h>
-#include <fatfs.h>
+#include <ff.h>
 #include <Shift_Register/shift_reg.h>
 #include <ATGM336H/nmea_gps.h>
 #include <DS18B20/one_wire.h>

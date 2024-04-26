@@ -57,14 +57,32 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define OE_Pin GPIO_PIN_13
-#define OE_GPIO_Port GPIOC
 #define Latch_Pin GPIO_PIN_1
 #define Latch_GPIO_Port GPIOC
+#define rst_button_Pin GPIO_PIN_0
+#define rst_button_GPIO_Port GPIOA
+#define DS_1wire_Pin GPIO_PIN_1
+#define DS_1wire_GPIO_Port GPIOA
+#define SIRENA_Pin GPIO_PIN_2
+#define SIRENA_GPIO_Port GPIOA
+#define latch_diods_Pin GPIO_PIN_4
+#define latch_diods_GPIO_Port GPIOA
 #define Latch_RF_Pin GPIO_PIN_4
 #define Latch_RF_GPIO_Port GPIOC
 #define OE_RF_Pin GPIO_PIN_5
 #define OE_RF_GPIO_Port GPIOC
+#define SR_RST_Pin GPIO_PIN_0
+#define SR_RST_GPIO_Port GPIOB
+#define RED_BUTTON_Pin GPIO_PIN_1
+#define RED_BUTTON_GPIO_Port GPIOB
+#define PHOTO_Pin GPIO_PIN_2
+#define PHOTO_GPIO_Port GPIOB
+#define UART_GPS_TX_Pin GPIO_PIN_6
+#define UART_GPS_TX_GPIO_Port GPIOC
+#define UART_GPS_RX_Pin GPIO_PIN_7
+#define UART_GPS_RX_GPIO_Port GPIOC
+#define diod_Pin GPIO_PIN_4
+#define diod_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

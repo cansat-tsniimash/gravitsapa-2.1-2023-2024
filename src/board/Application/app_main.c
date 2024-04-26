@@ -11,6 +11,11 @@
 #include "ssd1306/ssd1306.h"
 #include "ssd1306/ssd1306_conf.h"
 
+#define GPS_PACKET 50
+#define ORIENT_PACKET 5
+#define STATUS_PACK 5
+
+
 extern UART_HandleTypeDef huart6;
 extern UART_HandleTypeDef huart1;
 extern I2C_HandleTypeDef hi2c1;
@@ -78,10 +83,11 @@ typedef enum
 	STATE_GEN_PACK_STATUS = 4
 } state_nrf_t;
 
+
 int app_main(void)
 {
 	extern SPI_HandleTypeDef hspi2;
-
+    whoosh_diod();
 
 	//Настройка SR
 	shift_reg_t sr_sensor = {};
@@ -134,8 +140,8 @@ int app_main(void)
 	const char path_bin[] = "packet.bin";
 	memset(&fileSystem, 0x00, sizeof(fileSystem));
 	FRESULT is_mount = 0;
-	extern Disk_drvTypeDef disk;
-	disk.is_initialized[0] = 0;
+	//extern Disk_drvTypeDef disk;
+	//disk.is_initialized[0] = 0;
 	is_mount = f_mount(&fileSystem, "", 1);
 	if(is_mount == FR_OK) { // монтируете файловую систему по пути SDPath, проверяете, что она смонтировалась, только при этом условии начинаете с ней работать
 			res1 = f_open(&File1, (char*)path1, FA_WRITE | FA_CREATE_ALWAYS); // открытие файла, обязательно для работы с ним
@@ -252,12 +258,12 @@ int app_main(void)
 
 	//Настройка GPS
 	int64_t cookie;
-	int8_t fix_;
+	int fix_;
 	float lon, lat, alt;
 	gps_init();
 	__HAL_UART_ENABLE_IT(&huart6, UART_IT_RXNE);
 	__HAL_UART_ENABLE_IT(&huart6, UART_IT_ERR);
-	uint32_t gps_time_s;
+	uint64_t gps_time_s;
 	uint32_t gps_time_us;
 	//натсрока nRF
 	uint32_t start_time_nrf = HAL_GetTick();
@@ -311,7 +317,7 @@ int app_main(void)
 	int comp = 0;
 	nrf24_fifo_status_t rx_status = NRF24_FIFO_EMPTY;
 	nrf24_fifo_status_t tx_status = NRF24_FIFO_EMPTY;
-	int counter = 0;
+	uint64_t counter = 0;
 
 	//Пакеты
 	pack3_t orient_pack;
@@ -385,15 +391,15 @@ int app_main(void)
 		};
 
 //		//ds reading
-//		if (HAL_GetTick()-start_time_ds >= 750)
-//		{
-//			uint8_t buf[8];
-//			onewire_read_rom(&ds, buf);
-//			ds18b20_read_raw_temperature(&ds, &temp_ds, &crc_ok_ds);
-//			ds18b20_start_conversion(&ds);
-//			start_time_ds = HAL_GetTick();
-//			ds_temp = ((float)temp_ds) / 16;
-//		}
+		if (HAL_GetTick()-start_time_ds >= 750)
+		{
+			uint8_t buf[8];
+			onewire_read_rom(&ds, buf);
+			ds18b20_read_raw_temperature(&ds, &temp_ds, &crc_ok_ds);
+			ds18b20_start_conversion(&ds);
+			start_time_ds = HAL_GetTick();
+			ds_temp = ((float)temp_ds) / 16;
+		}
 
 
 		//Включение лампочек при наличии данных на датчиках
@@ -417,7 +423,7 @@ int app_main(void)
 //		if (HAL_GetTick()-start_time_nrf >= 100 || irq_on_pin)
 //		{
 //			nrf24_irq_get(&nrf24, &comp);
-//			nrf24_irq_clear(&nrf24, comp);
+//			nrf24_irq_cl ear(&nrf24, comp);
 //			nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
 //
 //			if(tx_status != NRF24_FIFO_FULL){
@@ -425,7 +431,11 @@ int app_main(void)
 //				start_time_nrf = HAL_GetTick();
 //			}
 //		}
-
+		//bool red_but = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1);
+		//if (red_but == false)
+		//{
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_3, GPIO_PIN_SET);
+		//}
 		//GPS
 		gps_work();
 		gps_get_coords(&cookie, &lat, &lon, &alt, &fix_);
@@ -482,7 +492,7 @@ int app_main(void)
 
 				if(res2 == FR_OK){
 					str_wr = sd_parse_to_bytes_pack2(str_buf, &status_pack);
-					res2 = f_write(&File2, str_buf, 300, &Bytes); // отправка на запись в файл
+					res2 = f_write(&File2, str_buf, str_wr, &Bytes); // отправка на запись в файл
 				}
 
 				if(res_bin == FR_OK){
@@ -525,10 +535,10 @@ int app_main(void)
 
 					start_time_nrf = HAL_GetTick();
 					if(res3 == FR_OK){
-						str_wr = sd_parse_to_bytes_pack2(str_buf, &orient_pack);
+						str_wr = sd_parse_to_bytes_pack3(str_buf, &orient_pack);
 						res3 = f_write(&File3, str_buf, str_wr, &Bytes); // отправка на запись в файл
 					}
-
+//					птички летят бомбить поросят
 					if(res_bin == FR_OK){
 						res_bin = f_write(&File_bin, (uint8_t*)&orient_pack, sizeof(orient_pack), &Bytes); // отправка на запись в файл
 					}
@@ -596,8 +606,6 @@ int app_main(void)
 					if(megares != FR_OK || is_mount != FR_OK){
 						//shift_reg_write_bit_16(&shift_reg_r, 9, false);
 						f_mount(0, "0", 1);
-						extern Disk_drvTypeDef disk;
-						disk.is_initialized[0] = 0;
 						is_mount = f_mount(&fileSystem, "", 1);
 						res1 = f_open(&File1, (char*)path1, FA_WRITE | FA_OPEN_APPEND);
 						res2 = f_open(&File2, (char*)path2, FA_WRITE | FA_OPEN_APPEND);
