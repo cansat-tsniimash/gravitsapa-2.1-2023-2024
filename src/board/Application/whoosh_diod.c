@@ -13,11 +13,13 @@ struct spi_sr_bus
 	shift_reg_t *sr;
 };
 
+//static const unsigned char diods = {0b10000000, 0b01000000, 0b00100000, 0b00010000, 0b00001000, 0b00000100, 0b00000010, 0b00000001};
+
 int whoosh_diod(void)
 {
 	extern SPI_HandleTypeDef hspi1;
 
-	//uint8_t x = 0b00000001;
+
 	//Настройка SR
 	shift_reg_t sr_led = {};
 	sr_led.bus = &hspi1;
@@ -29,7 +31,22 @@ int whoosh_diod(void)
 	shift_reg_init(&sr_led);
 	while(1)
 	{
-	shift_reg_write_8(&sr_led, 0b1000);
+		shift_reg_write_8(&sr_led, 0b10000000);
+		HAL_Delay(100);
+		shift_reg_write_8(&sr_led, 0b01000000);
+		HAL_Delay(100);
+		shift_reg_write_8(&sr_led, 0b00100000);
+		HAL_Delay(100);
+		shift_reg_write_8(&sr_led, 0b00010000);
+		HAL_Delay(100);
+		shift_reg_write_8(&sr_led, 0b00001000);
+		HAL_Delay(100);
+		shift_reg_write_8(&sr_led, 0b00000100);
+		HAL_Delay(100);
+		shift_reg_write_8(&sr_led, 0b00000010);
+		HAL_Delay(100);
+		shift_reg_write_8(&sr_led, 0b00000001);
+		HAL_Delay(100);
 	}
 	return 0;
 

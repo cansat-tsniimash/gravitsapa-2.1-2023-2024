@@ -12,9 +12,9 @@
 #include "ssd1306/ssd1306_conf.h"
 
 #define GPS_PACKET 50
-#define ORIENT_PACKET 5
-#define STATUS_PACK 5
-
+#define ORIENT_PACKE 5
+#define TASK2_PERIOD 40
+#define TASK3_PERIOD 5
 
 extern UART_HandleTypeDef huart6;
 extern UART_HandleTypeDef huart1;
@@ -332,10 +332,10 @@ int app_main(void)
 	status_pack.flag = 0x01;
 
 	state_nrf_t state_nrf;
+	state_nrf_t next_state_nrf;
 	state_nrf = STATE_GEN_PACK_GPS;
-	state_nrf = STATE_WAIT;
-	state_nrf = STATE_GEN_PACK_ORIENT;
-	state_nrf = STATE_GEN_PACK_STATUS;
+	next_state_nrf = STATE_GEN_PACK_GPS;
+
 	//		oled_draw1();
 	//		HAL_Delay(100);
 	//		oled_draw2();
@@ -344,6 +344,10 @@ int app_main(void)
 
 	while(1)
 	{
+		if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) != GPIO_PIN_RESET)
+		{
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
+		}
 		oled_circle();
 		//HAL_Delay(100);
 		//oled_draw2();
@@ -499,6 +503,7 @@ int app_main(void)
 					res_bin = f_write(&File_bin, (uint8_t*)&status_pack, sizeof(status_pack), &Bytes); // отправка на запись в файл
 				}
 				state_nrf = STATE_WAIT;
+				next_state_nrf = STATE_GEN_PACK_ORIENT;
 				break;
 
 			case STATE_GEN_PACK_GPS:
@@ -522,6 +527,7 @@ int app_main(void)
 
 
 					state_nrf = STATE_WAIT;
+					next_state_nrf = STATE_GEN_PACK_ORIENT;
 					break;
 
 			case STATE_GEN_PACK_ORIENT:
@@ -544,6 +550,17 @@ int app_main(void)
 					}
 
 					state_nrf = STATE_WAIT;
+
+					counter++;
+					if(counter == 10)
+					{
+						next_state_nrf = STATE_GEN_PACK_GPS;
+						counter = 0;
+					}
+					else
+					{
+						next_state_nrf = STATE_GEN_PACK_STATUS;
+					}
 					break;
 
 
@@ -555,16 +572,7 @@ int app_main(void)
 					nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
 					if(tx_status == NRF24_FIFO_EMPTY)
 					{
-						counter++;
-						if(counter == 10)
-						{
-							state_nrf = STATE_GEN_PACK_GPS;
-							counter = 0;
-						}
-						else
-						{
-							state_nrf = STATE_GEN_PACK_ORIENT && STATE_GEN_PACK_STATUS;
-						}
+						state_nrf = next_state_nrf;
 					}
 				}
 				if (HAL_GetTick()-start_time_nrf >= 100)
@@ -572,9 +580,7 @@ int app_main(void)
 					nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
 					nrf24_fifo_flush_tx(&nrf24);
 					nrf24_fifo_status(&nrf24, &rx_status, &tx_status);
-					state_nrf = STATE_GEN_PACK_GPS;
-					state_nrf = STATE_GEN_PACK_ORIENT;
-					state_nrf = STATE_GEN_PACK_STATUS;
+					state_nrf = next_state_nrf;
 				}
 
 				break;
