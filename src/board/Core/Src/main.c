@@ -400,10 +400,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, rst_button_Pin|DS_1wire_Pin|SIRENA_Pin|latch_diods_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(SR_RST_GPIO_Port, SR_RST_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, SR_RST_Pin|test_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, PHOTO_Pin|test_Pin|diod_Pin|GPIO_PIN_9, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, PHOTO_Pin|diod_Pin|GPIO_PIN_9, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PC13 Latch_Pin PC3 Latch_RF_Pin
                            OE_RF_Pin */

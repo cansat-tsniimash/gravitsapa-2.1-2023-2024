@@ -28,7 +28,7 @@ typedef struct{
 	uint8_t flag;
 	uint16_t num;
 	uint32_t time_ms;
-	uint16_t bmp_temp;
+	int16_t bmp_temp;
 	uint32_t bmp_press;
 	uint16_t fhotorez;
 	int16_t ds_temp;
