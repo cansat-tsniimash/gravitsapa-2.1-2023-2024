@@ -10,6 +10,9 @@
 #include "includes.h"
 #include "ssd1306/ssd1306.h"
 #include "ssd1306/ssd1306_conf.h"
+#include "mat.h"
+
+
 
 #include "sdcard.h"
 #include "radio.h"
@@ -43,6 +46,7 @@ int _write(int file, char *ptr, int len)
   return 0;
 }
 
+
 ////Настройка экарана
 //void oled_draw1(){
 //	ssd1306_Init(); // initialize the display
@@ -58,6 +62,12 @@ int _write(int file, char *ptr, int len)
 //	ssd1306_UpdateScreen();
 //}
 
+//float m[2][2] =;
+//float v[2] = {1, 1};
+//float rv[2] = 90;
+
+
+
 void oled_circle()
 {
 	ssd1306_Init();
@@ -65,7 +75,6 @@ void oled_circle()
 	{
 		ssd1306_FillCircle(64, 32, i, White);
 		ssd1306_UpdateScreen();
-
 	}
 
 	HAL_Delay(500);
@@ -92,12 +101,31 @@ uint16_t crc = 0xFFFF;
 
 int app_main(void)
 {
+	char ch = "5,7km"; //Тестовая переменная для вывода на экран
+
 	int ds18_error = 0;
 	int bme_error = 0;
 	int lsm_error = 0;
 	int lis_error = 0;
 	int gps_error = 0;
 	int sd_error = 0;
+
+
+	ssd1306_Init();
+	ssd1306_Reset();
+
+	double angle = 0;
+	while(1)
+	{
+		ssd1306_Fill(Black);
+		ssd1306_SetCursor(0, 19);
+		ssd1306_WriteStringVertical("5,7km", Font_6x8, White);
+		draw_arrow(DEG_TO_RAD(angle));
+		ssd1306_UpdateScreen();
+		angle += 2;
+		HAL_Delay(6);
+
+	}
 
 	//Настройка SR
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -226,6 +254,8 @@ int app_main(void)
 	radio_task_t radio;
 	radio_task_init(&radio, &shift_reg_r);
 
+	shift_reg_write_bit_8(&shift_reg_r, 0x03, true);
+	shift_reg_write_bit_8(&shift_reg_r, 0x04, true);
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 	// НАСТРОЙКА ВСЕГО ЗАВЕРШЕНА
@@ -261,21 +291,21 @@ int app_main(void)
 		float gyro_dps[3];
 		for (int i = 0; i < 3; i++)
 		{
-			acc_g[i] = lsm6ds3_from_fs16g_to_mg(acc_raw[i]) / 1000.0;//  / 1000
-			gyro_dps[i] = lsm6ds3_from_fs2000dps_to_mdps(gyro_raw[i] / 1000.0); //  / 1000
-			orient_pack.accl[i] = acc_g[i];
-			orient_pack.gyro[i] = gyro_dps[i];
+			acc_g[i] = lsm6ds3_from_fs16g_to_mg(acc_raw[i]);//  / 1000
+			gyro_dps[i] = lsm6ds3_from_fs2000dps_to_mdps(gyro_raw[i]); //  / 1000
+			orient_pack.accl[i] = acc_g[i] / 1000.0;
+			orient_pack.gyro[i] = gyro_dps[i] / 1000.0;
 		}
 
 		// Чтение данные из lis3mdl
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 		int16_t mag_raw[3];
 		lis3mdl_magnetic_raw_get(&lis_ctx, mag_raw);
-		int16_t mag[3];
+		float mag[3];
 		for (int i = 0; i < 3; i++)
 		{
 			mag[i] = lis3mdl_from_fs16_to_gauss(mag_raw[i]);
-			orient_pack.mag[i] = mag[i]*1000;
+			orient_pack.mag[i] = mag[i] / 1000.0;
 		};
 
 		// Опрос ds18
@@ -380,6 +410,18 @@ int app_main(void)
 
 		gps_work();
 		sdcard_task_work(&sdcard);
+		//if (HAL_GPIO_ReadPin(RED_BUTTON_GPIO_Port, RED_BUTTON_Pin) == 0)
+		//{
+//			ssd1306_Init();
+//			ssd1306_Reset();
+//			//ssd1306_SetCursor(23, 56);
+//			ssd1306_WriteString("Idk how to rotate the screen", Font_7x10, White);
+//			ssd1306_UpdateScreen();
+		//}
+		//else
+		//{
+
+		//}
 	}
 
 	return 0;

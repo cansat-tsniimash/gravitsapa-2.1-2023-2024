@@ -79,10 +79,10 @@ void Error_Handler(void);
 #define PHOTO_GPIO_Port GPIOB
 #define test_Pin GPIO_PIN_12
 #define test_GPIO_Port GPIOB
-#define UART_GPS_TX_Pin GPIO_PIN_6
-#define UART_GPS_TX_GPIO_Port GPIOC
-#define UART_GPS_RX_Pin GPIO_PIN_7
-#define UART_GPS_RX_GPIO_Port GPIOC
+#define GPS_TX_Pin GPIO_PIN_6
+#define GPS_TX_GPIO_Port GPIOC
+#define GPS_RX_Pin GPIO_PIN_7
+#define GPS_RX_GPIO_Port GPIOC
 #define diod_Pin GPIO_PIN_4
 #define diod_GPIO_Port GPIOB
 
