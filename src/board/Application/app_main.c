@@ -110,22 +110,23 @@ int app_main(void)
 	int gps_error = 0;
 	int sd_error = 0;
 
+	char buffer_time [5];
 
 	ssd1306_Init();
 	ssd1306_Reset();
 
-	double angle = 0;
-	while(1)
-	{
-		ssd1306_Fill(Black);
-		ssd1306_SetCursor(0, 19);
-		ssd1306_WriteStringVertical("5,7km", Font_6x8, White);
-		draw_arrow(DEG_TO_RAD(angle));
-		ssd1306_UpdateScreen();
-		angle += 2;
-		HAL_Delay(6);
-
-	}
+//	double angle = 0;
+//	while(1)
+//	{
+//		ssd1306_Fill(Black);
+//		ssd1306_SetCursor(0, 19);
+//		ssd1306_WriteStringVertical("5,7km", Font_6x8, White);
+//		draw_arrow(DEG_TO_RAD(angle));
+//		ssd1306_UpdateScreen();
+//		angle += 2;
+//		HAL_Delay(6);
+//
+//	}
 
 	//Настройка SR
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -279,6 +280,7 @@ int app_main(void)
 
 	while(1)
 	{
+
 		// Чтение данных из lsm6ds3
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 		int16_t acc_raw[3];
@@ -339,10 +341,15 @@ int app_main(void)
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 		float gps_lon, gps_lat, gps_alt;
 		int gps_fix;
-		uint64_t gps_time_s;
-		uint32_t gps_time_us;
+		uint64_t gps_time_s = 0;
+		uint32_t gps_time_us = 0;
 		gps_get_coords(&gps_coord_cookie, &gps_lat, &gps_lon, &gps_alt, &gps_fix);
 		gps_get_time(&gps_time_cookie, &gps_time_s, &gps_time_us);
+		uint64_t gps_time_now = gps_time_us;
+		gps_get_gga_time(&gps_time_now);
+
+
+		//printf(gps_time_us);
 		gps_pack.lat = gps_lat;
 		gps_pack.lon = gps_lon;
 		gps_pack.alt = gps_alt;
@@ -422,6 +429,8 @@ int app_main(void)
 		//{
 
 		//}
+
+
 	}
 
 	return 0;

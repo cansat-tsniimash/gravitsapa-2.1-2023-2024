@@ -6,7 +6,6 @@
  */
 
 #include "mat.h"
-
 #include "math.h"
 #include "ssd1306/ssd1306.h"
 
@@ -67,7 +66,6 @@ void draw_arrow(float angle)
 	ssd1306_Line(line_end[0]+0.5, line_end[1]+0.5, arrow_left[0]+0.5, arrow_left[1]+0.5, White);
 	ssd1306_Line(line_end[0]+0.5, line_end[1]+0.5, arrow_right[0]+0.5, arrow_right[1]+0.5, White);
 	//ssd1306_Line(arrow_left[0]+0.5, arrow_left[1]+0.5, arrow_right[0]+0.5, arrow_right[1]+0.5, White);
-
 
 	ssd1306_Line(95, 7, 115, 7, White);
 	ssd1306_Line(115, 7, 110, 4, White);
