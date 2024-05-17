@@ -78,5 +78,4 @@ int gps_get_gga(int64_t * cookie, struct minmea_sentence_gga * gga_);
 
 
 
-
 #endif /* NMEA_GPS_H_ */

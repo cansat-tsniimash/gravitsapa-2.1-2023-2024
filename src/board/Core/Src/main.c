@@ -397,7 +397,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_3, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, rst_button_Pin|DS_1wire_Pin|SIRENA_Pin|latch_diods_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, DS_1wire_Pin|SIRENA_Pin|latch_diods_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, SR_RST_Pin|test_Pin, GPIO_PIN_SET);
@@ -420,8 +420,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : rst_button_Pin DS_1wire_Pin SIRENA_Pin latch_diods_Pin */
-  GPIO_InitStruct.Pin = rst_button_Pin|DS_1wire_Pin|SIRENA_Pin|latch_diods_Pin;
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : DS_1wire_Pin SIRENA_Pin latch_diods_Pin */
+  GPIO_InitStruct.Pin = DS_1wire_Pin|SIRENA_Pin|latch_diods_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

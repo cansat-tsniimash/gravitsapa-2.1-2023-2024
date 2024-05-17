@@ -59,8 +59,6 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define Latch_Pin GPIO_PIN_1
 #define Latch_GPIO_Port GPIOC
-#define rst_button_Pin GPIO_PIN_0
-#define rst_button_GPIO_Port GPIOA
 #define DS_1wire_Pin GPIO_PIN_1
 #define DS_1wire_GPIO_Port GPIOA
 #define SIRENA_Pin GPIO_PIN_2

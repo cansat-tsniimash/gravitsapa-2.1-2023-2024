@@ -32,10 +32,9 @@ static uint64_t time_s;
 static uint32_t time_us;
 
 static struct minmea_sentence_gga gga;
-static struct minmea_sentence_gga miroslav_gga;
 
-uint16_t miroslav_hours = 0;
-uint16_t miroslav_minutes = 0;
+uint16_t anarchy_hours = 0;
+uint16_t anarchy_minutes = 0;
 
 static uint16_t schetchik = 0;
 
@@ -179,14 +178,12 @@ int gps_work()
 				continue;
 			}
 
-			struct minmea_sentence_gga gga;
 			bool succes = minmea_parse_gga(&gga, pavel_gps_buffer);
 			if (!succes)
 			{
 				continue;
 			}
 			time_us = gga.time.microseconds;
-			miroslav_gga = gga;
 			time_s = 3600*gga.time.hours + 60*gga.time.minutes + gga.time.seconds;
 			lat = minmea_tocoord(&gga.latitude);
 			lon = minmea_tocoord(&gga.longitude);
@@ -195,7 +192,6 @@ int gps_work()
 			pos_cookie++;
 			alt_cookie++;
 			time_cookie++;
-
 		}
 	}
 	return 0;
@@ -237,8 +233,3 @@ int gps_get_gga(int64_t * cookie, struct minmea_sentence_gga * gga_)
 	return 0;
 }
 
-struct minmea_sentence_gga gps_get_gga_time()
-{
-
-	return miroslav_gga;
-}

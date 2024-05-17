@@ -115,18 +115,18 @@ int app_main(void)
 	ssd1306_Init();
 	ssd1306_Reset();
 
-//	double angle = 0;
-//	while(1)
-//	{
-//		ssd1306_Fill(Black);
-//		ssd1306_SetCursor(0, 19);
-//		ssd1306_WriteStringVertical("5,7km", Font_6x8, White);
-//		draw_arrow(DEG_TO_RAD(angle));
-//		ssd1306_UpdateScreen();
-//		angle += 2;
-//		HAL_Delay(6);
-//
-//	}
+	double angle = 0;
+	//while(1)
+	//{
+		ssd1306_Fill(Black);
+		ssd1306_SetCursor(0, 19);
+		ssd1306_WriteStringVertical("5,7km", Font_6x8, White);
+		draw_arrow(DEG_TO_RAD(angle));
+		ssd1306_UpdateScreen();
+		angle += 2;
+		//HAL_Delay(6);
+
+	//}
 
 	//Настройка SR
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -278,6 +278,9 @@ int app_main(void)
 	uint32_t pack2_deadline = HAL_GetTick() + PACK2_PERIOD;
 	uint32_t pack3_deadline = HAL_GetTick() + PACK3_PERIOD;
 
+	float coord_base_lat = 0;
+	float coord_base_lon = 0;
+
 	while(1)
 	{
 
@@ -345,9 +348,8 @@ int app_main(void)
 		uint32_t gps_time_us = 0;
 		gps_get_coords(&gps_coord_cookie, &gps_lat, &gps_lon, &gps_alt, &gps_fix);
 		gps_get_time(&gps_time_cookie, &gps_time_s, &gps_time_us);
-		uint64_t gps_time_now = gps_time_us;
-		gps_get_gga_time(&gps_time_now);
-
+		//uint64_t gps_time_now = gps_time_us;
+		//gps_get_gga_time(&gps_time_now);
 
 		//printf(gps_time_us);
 		gps_pack.lat = gps_lat;
@@ -369,7 +371,6 @@ int app_main(void)
 
 			if (gps_pack.num % PACK1_RF_DELIMITER == 0)
 				nrf24_fifo_write(&radio.radio, (uint8_t*)&gps_pack, sizeof(gps_pack), false);
-
 		}
 
 		if (HAL_GetTick() >= pack2_deadline)
@@ -396,7 +397,6 @@ int app_main(void)
 
 			if (orient_pack.num % PACK3_RF_DELIMITER == 0)
 				nrf24_fifo_write(&radio.radio, (uint8_t *)&orient_pack, sizeof(orient_pack), false);
-
 		}
 
 		// Чистим прерывания для RF24
@@ -414,22 +414,24 @@ int app_main(void)
 		if (gps_error == 0)
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 1);
 
-
 		gps_work();
 		sdcard_task_work(&sdcard);
-		//if (HAL_GPIO_ReadPin(RED_BUTTON_GPIO_Port, RED_BUTTON_Pin) == 0)
-		//{
-//			ssd1306_Init();
-//			ssd1306_Reset();
-//			//ssd1306_SetCursor(23, 56);
-//			ssd1306_WriteString("Idk how to rotate the screen", Font_7x10, White);
-//			ssd1306_UpdateScreen();
-		//}
-		//else
-		//{
+		//Экран
+		ssd1306_Fill(Black);
+		ssd1306_SetCursor(0, 19);
+		ssd1306_WriteStringVertical("14,88km", Font_6x8, White);
+		draw_arrow(DEG_TO_RAD(angle));
+		ssd1306_UpdateScreen();
+		angle += 2;
 
-		//}
-
+		//КНОПКА RST
+		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET){
+			coord_base_lat == gps_lat;
+			coord_base_lon == gps_lon;
+			ssd1306_Init();
+			ssd1306_Fill(White);
+			ssd1306_UpdateScreen();
+		}
 
 	}
 

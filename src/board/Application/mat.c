@@ -8,6 +8,7 @@
 #include "mat.h"
 #include "math.h"
 #include "ssd1306/ssd1306.h"
+#include "ATGM336H/nmea_gps.h"
 
 
 void matrix_p_vector(const float m[2][2], const float v[2], float rv[2])
@@ -75,5 +76,14 @@ void draw_arrow(float angle)
 	ssd1306_WriteStringVertical("N", Font_7x10, White);
 
 	ssd1306_SetCursor(116, 20);
-	ssd1306_WriteStringVertical("00:00UTC", Font_6x8, White);
+	int64_t cookie;
+	struct minmea_sentence_gga gga;
+	gps_get_gga(&cookie, &gga);
+	char time_text_buffer[10] = {};
+	const char separator = (gga.time.seconds % 2 != 0 && gga.fix_quality > 0) ? ' ' : ':';
+	snprintf(
+			time_text_buffer, sizeof(time_text_buffer),
+			"%02d%c%02dUTC", (int)gga.time.hours, separator, (int)gga.time.minutes
+	);
+	ssd1306_WriteStringVertical(time_text_buffer, Font_6x8, White);
 }
