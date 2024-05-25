@@ -10,6 +10,9 @@
 #include "ssd1306/ssd1306.h"
 #include "ATGM336H/nmea_gps.h"
 
+extern float coord_base_lat;
+extern float coord_base_lon;
+extern float gps_lon, gps_lat, gps_alt;
 
 void matrix_p_vector(const float m[2][2], const float v[2], float rv[2])
 {
@@ -47,11 +50,16 @@ void draw_arrow(float angle)
 	const float line_end_[2] = {line_size/2, 0};
 	const float arrow_left_[2] = {line_size/2 - 12, -3};
 	const float arrow_right_[2] = {line_size/2 - 12, +3};
-
+	float test_lat, test_lon, base_lat_t, base_lon_t;
 	float line_begin[2];
 	float line_end[2];
 	float arrow_left[2];
 	float arrow_right[2];
+
+	//test_lat = 55.91010002851728;
+	//test_lon = 37.79712189970438;
+	base_lat_t = 55.913919937024616;
+	base_lon_t = 37.797132745957676;
 	vector_rot3(line_begin_, angle, line_begin);
 	vector_rot3(line_end_, angle, line_end);
 	vector_rot3(arrow_left_, angle, arrow_left);
@@ -80,10 +88,27 @@ void draw_arrow(float angle)
 	struct minmea_sentence_gga gga;
 	gps_get_gga(&cookie, &gga);
 	char time_text_buffer[10] = {};
+	char distance_text_buffer[10] = {};
 	const char separator = (gga.time.seconds % 2 != 0 && gga.fix_quality > 0) ? ' ' : ':';
 	snprintf(
 			time_text_buffer, sizeof(time_text_buffer),
 			"%02d%c%02dUTC", (int)gga.time.hours, separator, (int)gga.time.minutes
 	);
 	ssd1306_WriteStringVertical(time_text_buffer, Font_6x8, White);
+	float dLat, dLon, a, c, R;
+	float distance;
+	R = 6371;
+	//float distance = 6400*acos(sin(base_lon_t))*sin(test_lon)*cos(base_lat_t-test_lat)+cos(base_lon_t)*cos(test_lon));
+	dLat = DEG_TO_RAD(coord_base_lat - gps_lat);
+	dLon = DEG_TO_RAD(coord_base_lon - gps_lon);
+	a = sin(dLat/2) * sin(dLat/2) + cos(DEG_TO_RAD(gps_lat)) * cos(DEG_TO_RAD(coord_base_lat)) * sin(dLon/2) * sin(dLon/2);
+	c = 2 * atan2(sqrt(a), sqrt(1-a));
+	distance = R * c;
+	snprintf(distance_text_buffer, sizeof(distance_text_buffer),
+			"%.*f km", 1, (float)distance
+	);
+	ssd1306_SetCursor(0, 9);
+	ssd1306_WriteStringVertical(distance_text_buffer, Font_6x8, White);
+
+
 }

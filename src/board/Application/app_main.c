@@ -68,23 +68,6 @@ int _write(int file, char *ptr, int len)
 
 
 
-void oled_circle()
-{
-	ssd1306_Init();
-	for (int i = 1; i < 32; i++)
-	{
-		ssd1306_FillCircle(64, 32, i, White);
-		ssd1306_UpdateScreen();
-	}
-
-	HAL_Delay(500);
-	ssd1306_Reset();
-	ssd1306_Fill(White);
-	ssd1306_UpdateScreen();
-	ssd1306_WriteString("Gravitsapa", Font_11x18, Black);
-	ssd1306_UpdateScreen();
-	HAL_Delay(900);
-}
 
 //crc count
 uint16_t Crc16(uint8_t *buf, uint16_t len) {
@@ -98,11 +81,13 @@ uint16_t crc = 0xFFFF;
 }
 
 
+float coord_base_lat = 0;
+float coord_base_lon = 0;
+
+float gps_lon, gps_lat, gps_alt;
 
 int app_main(void)
 {
-	char ch = "5,7km"; //Тестовая переменная для вывода на экран
-
 	int ds18_error = 0;
 	int bme_error = 0;
 	int lsm_error = 0;
@@ -278,8 +263,6 @@ int app_main(void)
 	uint32_t pack2_deadline = HAL_GetTick() + PACK2_PERIOD;
 	uint32_t pack3_deadline = HAL_GetTick() + PACK3_PERIOD;
 
-	float coord_base_lat = 0;
-	float coord_base_lon = 0;
 
 	while(1)
 	{
@@ -342,7 +325,6 @@ int app_main(void)
 
 		// Опрос gps
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-		float gps_lon, gps_lat, gps_alt;
 		int gps_fix;
 		uint64_t gps_time_s = 0;
 		uint32_t gps_time_us = 0;
@@ -419,19 +401,29 @@ int app_main(void)
 		//Экран
 		ssd1306_Fill(Black);
 		ssd1306_SetCursor(0, 19);
-		ssd1306_WriteStringVertical("14,88km", Font_6x8, White);
 		draw_arrow(DEG_TO_RAD(angle));
 		ssd1306_UpdateScreen();
 		angle += 2;
 
 		//КНОПКА RST
 		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET){
-			coord_base_lat == gps_lat;
-			coord_base_lon == gps_lon;
+			coord_base_lat = gps_lat;
+			coord_base_lon = gps_lon;
 			ssd1306_Init();
 			ssd1306_Fill(White);
 			ssd1306_UpdateScreen();
 		}
+		if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_RESET){
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);
+		}
+		else
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
+
+
+
+
+		//float distance = 6400*acos(sin(coord_base_lon)*sin(gps_lon)*cos(coord_base_lat-gps_lat)+cos(coord_base_lon)*cos(gps_lon));
+
 
 	}
 
