@@ -19,7 +19,7 @@ void build_rot3(const float alpha, float m[2][2]);
 
 void vector_rot3(const float v[2], const float alpha, float rv[2]);
 
-void draw_arrow(float angle);
+void draw(void);
 
 
 #endif /* MAT_H_ */

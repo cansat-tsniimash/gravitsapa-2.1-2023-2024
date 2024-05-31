@@ -80,11 +80,10 @@ uint16_t crc = 0xFFFF;
 	return crc;
 }
 
-
 float coord_base_lat = 0;
 float coord_base_lon = 0;
-
 float gps_lon, gps_lat, gps_alt;
+uint8_t state;
 
 int app_main(void)
 {
@@ -100,15 +99,15 @@ int app_main(void)
 	ssd1306_Init();
 	ssd1306_Reset();
 
-	double angle = 0;
+	//double angle = 0;
 	//while(1)
 	//{
-		ssd1306_Fill(Black);
-		ssd1306_SetCursor(0, 19);
-		ssd1306_WriteStringVertical("5,7km", Font_6x8, White);
-		draw_arrow(DEG_TO_RAD(angle));
-		ssd1306_UpdateScreen();
-		angle += 2;
+		//
+	ssd1306_Fill(Black);
+		//ssd1306_SetCursor(0, 19);
+		//draw_arrow(DEG_TO_RAD(angle));
+		//ssd1306_UpdateScreen();
+		//angle += 2;
 		//HAL_Delay(6);
 
 	//}
@@ -251,7 +250,6 @@ int app_main(void)
 	// Запускаем ds18
 	ds18_error = ds18b20_start_conversion(&ds);
 	uint32_t ds_deadline = HAL_GetTick() + DS18_PERIOD;
-
 	int64_t gps_coord_cookie = -42;
 	int64_t gps_time_cookie = -43;
 
@@ -399,11 +397,12 @@ int app_main(void)
 		gps_work();
 		sdcard_task_work(&sdcard);
 		//Экран
+
 		ssd1306_Fill(Black);
 		ssd1306_SetCursor(0, 19);
-		draw_arrow(DEG_TO_RAD(angle));
+		draw();
 		ssd1306_UpdateScreen();
-		angle += 2;
+
 
 		//КНОПКА RST
 		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET){
@@ -419,7 +418,7 @@ int app_main(void)
 		else
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
 
-
+		//вычисление азимута
 
 
 		//float distance = 6400*acos(sin(coord_base_lon)*sin(gps_lon)*cos(coord_base_lat-gps_lat)+cos(coord_base_lon)*cos(gps_lon));

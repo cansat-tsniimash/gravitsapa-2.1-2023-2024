@@ -9,10 +9,12 @@
 #include "math.h"
 #include "ssd1306/ssd1306.h"
 #include "ATGM336H/nmea_gps.h"
+#include "aZimut.h"
 
 extern float coord_base_lat;
 extern float coord_base_lon;
 extern float gps_lon, gps_lat, gps_alt;
+extern float north_lat, north_lon;
 
 void matrix_p_vector(const float m[2][2], const float v[2], float rv[2])
 {
@@ -43,23 +45,19 @@ void vector_add(float v1[2], const float v2[2])
 }
 
 
-void draw_arrow(float angle)
+void draw() //FIXME draw_arrow() - last name
 {
+	const double angle = get_azimuth_deg(coord_base_lon, coord_base_lat, gps_lon, gps_lat);
 	const float line_size = 50;
 	const float line_begin_[2] = {-line_size/2, 0};
 	const float line_end_[2] = {line_size/2, 0};
 	const float arrow_left_[2] = {line_size/2 - 12, -3};
 	const float arrow_right_[2] = {line_size/2 - 12, +3};
-	float test_lat, test_lon, base_lat_t, base_lon_t;
 	float line_begin[2];
 	float line_end[2];
 	float arrow_left[2];
 	float arrow_right[2];
 
-	//test_lat = 55.91010002851728;
-	//test_lon = 37.79712189970438;
-	base_lat_t = 55.913919937024616;
-	base_lon_t = 37.797132745957676;
 	vector_rot3(line_begin_, angle, line_begin);
 	vector_rot3(line_end_, angle, line_end);
 	vector_rot3(arrow_left_, angle, arrow_left);
@@ -97,13 +95,17 @@ void draw_arrow(float angle)
 	ssd1306_WriteStringVertical(time_text_buffer, Font_6x8, White);
 	float dLat, dLon, a, c, R;
 	float distance;
+
+	//Вычисление расстояния от чела к штабу
 	R = 6371;
-	//float distance = 6400*acos(sin(base_lon_t))*sin(test_lon)*cos(base_lat_t-test_lat)+cos(base_lon_t)*cos(test_lon));
 	dLat = DEG_TO_RAD(coord_base_lat - gps_lat);
 	dLon = DEG_TO_RAD(coord_base_lon - gps_lon);
 	a = sin(dLat/2) * sin(dLat/2) + cos(DEG_TO_RAD(gps_lat)) * cos(DEG_TO_RAD(coord_base_lat)) * sin(dLon/2) * sin(dLon/2);
 	c = 2 * atan2(sqrt(a), sqrt(1-a));
+
 	distance = R * c;
+
+ 	//angle = acos(cos(distance1) - cos(distance) * cos(distance2) / sin(distance) * sin(distance2));
 	snprintf(distance_text_buffer, sizeof(distance_text_buffer),
 			"%.*f km", 1, (float)distance
 	);
