@@ -85,8 +85,24 @@ float coord_base_lon = 0;
 float gps_lon, gps_lat, gps_alt;
 uint8_t state;
 
+typedef enum
+{
+	STATE_READY = 0,
+	STATE_IN_ROCKET = 1,
+	STATE_AFTER_ROCKET = 2,
+	STATE_FIND = 3
+} state_t;
+
+
+
 int app_main(void)
 {
+	state_t state_now;
+	state_now = STATE_READY;
+	uint8_t find = 0;
+
+	uint64_t timer = 0;
+	extern SPI_HandleTypeDef hspi1;
 	int ds18_error = 0;
 	int bme_error = 0;
 	int lsm_error = 0;
@@ -98,19 +114,7 @@ int app_main(void)
 
 	ssd1306_Init();
 	ssd1306_Reset();
-
-	//double angle = 0;
-	//while(1)
-	//{
-		//
 	ssd1306_Fill(Black);
-		//ssd1306_SetCursor(0, 19);
-		//draw_arrow(DEG_TO_RAD(angle));
-		//ssd1306_UpdateScreen();
-		//angle += 2;
-		//HAL_Delay(6);
-
-	//}
 
 	//Настройка SR
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -190,7 +194,6 @@ int app_main(void)
 	{
 		uint8_t whoami = 0x00;
 		lsm6ds3_device_id_get(&lsm_ctx, &whoami);
-	//	printf("got lsm6ds3 whoami 0x%02X, expected 0x%02X\n", (int)whoami, (int)LSM6DS3_ID);
 		lsm6ds3_reset_set(&lsm_ctx, PROPERTY_ENABLE);
 		HAL_Delay(2);
 		lsm6ds3_xl_full_scale_set(&lsm_ctx, LSM6DS3_16g);
@@ -241,6 +244,17 @@ int app_main(void)
 
 	shift_reg_write_bit_8(&shift_reg_r, 0x03, true);
 	shift_reg_write_bit_8(&shift_reg_r, 0x04, true);
+	//
+	//НАСТРОЙКА СДВГ светодиодов
+	//Настройка SR
+	shift_reg_t sr_led = {};
+	sr_led.bus = &hspi1;
+	sr_led.latch_port = GPIOA;
+	sr_led.latch_pin  = GPIO_PIN_4;
+	sr_led.oe_port = GPIOA;
+	sr_led.oe_pin = GPIO_PIN_4;
+	sr_led.value = 0;
+	shift_reg_init(&sr_led);
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 	// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 	// НАСТРОЙКА ВСЕГО ЗАВЕРШЕНА
@@ -261,10 +275,9 @@ int app_main(void)
 	uint32_t pack2_deadline = HAL_GetTick() + PACK2_PERIOD;
 	uint32_t pack3_deadline = HAL_GetTick() + PACK3_PERIOD;
 
-
+	ssd1306_Init();
 	while(1)
 	{
-
 		// Чтение данных из lsm6ds3
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 		int16_t acc_raw[3];
@@ -277,8 +290,8 @@ int app_main(void)
 		float gyro_dps[3];
 		for (int i = 0; i < 3; i++)
 		{
-			acc_g[i] = lsm6ds3_from_fs16g_to_mg(acc_raw[i]);//  / 1000
-			gyro_dps[i] = lsm6ds3_from_fs2000dps_to_mdps(gyro_raw[i]); //  / 1000
+			acc_g[i] = lsm6ds3_from_fs16g_to_mg(acc_raw[i]);
+			gyro_dps[i] = lsm6ds3_from_fs2000dps_to_mdps(gyro_raw[i]);
 			orient_pack.accl[i] = acc_g[i] / 1000.0;
 			orient_pack.gyro[i] = gyro_dps[i] / 1000.0;
 		}
@@ -412,18 +425,80 @@ int app_main(void)
 			ssd1306_Fill(White);
 			ssd1306_UpdateScreen();
 		}
-		if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_RESET){
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);
+		if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2) == GPIO_PIN_RESET)
+		{
+
+			ssd1306_Fill(White);
+			ssd1306_UpdateScreen();
 		}
 		else
-			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
+		{
 
-		//вычисление азимута
+			ssd1306_Fill(Black);
+			ssd1306_UpdateScreen();
+		}
+		//if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_RESET){
+		//	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);
+		//}
+		//else
+		//	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
 
+		timer += 1;
+		if (timer == 1)
+			shift_reg_write_8(&sr_led, 0b10000000);
+		else if (timer == 2)
+			shift_reg_write_8(&sr_led, 0b01000000);
+		else if (timer == 3)
+			shift_reg_write_8(&sr_led, 0b00100000);
+		else if (timer == 4)
+			shift_reg_write_8(&sr_led, 0b00010000);
+		else if (timer == 5)
+			shift_reg_write_8(&sr_led, 0b00001000);
+		else if (timer == 6)
+			shift_reg_write_8(&sr_led, 0b00000100);
+		else if (timer == 7)
+			shift_reg_write_8(&sr_led, 0b00000010);
+		else if (timer == 8)
+			shift_reg_write_8(&sr_led, 0b00000001);
+		if (timer >= 8)
+			timer = 0;
+	}
+	switch (state_now)
+	{
+		case STATE_READY:
+			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2) == GPIO_PIN_RESET)
+			{
+				state_now = STATE_READY;
+			}
+			break;
+//-------------------------------------------------------1
 
-		//float distance = 6400*acos(sin(coord_base_lon)*sin(gps_lon)*cos(coord_base_lat-gps_lat)+cos(coord_base_lon)*cos(gps_lon));
-
-
+		case STATE_IN_ROCKET:
+			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2) == GPIO_PIN_SET)
+			{
+				ssd1306_Init();
+				ssd1306_Fill(White);
+				ssd1306_UpdateScreen();
+				state_now = STATE_AFTER_ROCKET;
+			}
+			break;
+//-------------------------------------------------------8
+		case STATE_AFTER_ROCKET:
+			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2) == GPIO_PIN_RESET)
+			{
+				state_now = STATE_FIND;
+			}
+			break;
+//-------------------------------------------------------8
+		case STATE_FIND:
+			HAL_Delay(1000);
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);
+			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_RESET)
+			{
+				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
+				state_now = STATE_FIND;
+			}
+			break;
 	}
 
 	return 0;

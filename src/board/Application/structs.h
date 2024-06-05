@@ -32,7 +32,7 @@ typedef struct{
 	uint32_t bmp_press;
 	uint16_t fhotorez;
 	int16_t ds_temp;
-	uint16_t status;
+	uint16_t state_now;
 	uint8_t find;
 	uint16_t crc;
 }pack2_t;

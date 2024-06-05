@@ -400,10 +400,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, DS_1wire_Pin|SIRENA_Pin|latch_diods_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, SR_RST_Pin|test_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(SR_RST_GPIO_Port, SR_RST_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, PHOTO_Pin|diod_Pin|GPIO_PIN_9, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, diod_Pin|GPIO_PIN_9, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PC13 Latch_Pin PC3 Latch_RF_Pin
                            OE_RF_Pin */
@@ -433,20 +433,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : SR_RST_Pin PHOTO_Pin test_Pin diod_Pin
-                           PB9 */
-  GPIO_InitStruct.Pin = SR_RST_Pin|PHOTO_Pin|test_Pin|diod_Pin
-                          |GPIO_PIN_9;
+  /*Configure GPIO pins : SR_RST_Pin diod_Pin PB9 */
+  GPIO_InitStruct.Pin = SR_RST_Pin|diod_Pin|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : RED_BUTTON_Pin */
-  GPIO_InitStruct.Pin = RED_BUTTON_Pin;
+  /*Configure GPIO pins : RED_BUTTON_Pin photo_Pin */
+  GPIO_InitStruct.Pin = RED_BUTTON_Pin|photo_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(RED_BUTTON_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA15 */
   GPIO_InitStruct.Pin = GPIO_PIN_15;

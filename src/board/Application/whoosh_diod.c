@@ -29,25 +29,10 @@ int whoosh_diod(void)
 	sr_led.oe_pin = GPIO_PIN_4;
 	sr_led.value = 0;
 	shift_reg_init(&sr_led);
-	while(1)
-	{
-		shift_reg_write_8(&sr_led, 0b10000000);
-		HAL_Delay(100);
-		shift_reg_write_8(&sr_led, 0b01000000);
-		HAL_Delay(100);
-		shift_reg_write_8(&sr_led, 0b00100000);
-		HAL_Delay(100);
-		shift_reg_write_8(&sr_led, 0b00010000);
-		HAL_Delay(100);
-		shift_reg_write_8(&sr_led, 0b00001000);
-		HAL_Delay(100);
-		shift_reg_write_8(&sr_led, 0b00000100);
-		HAL_Delay(100);
-		shift_reg_write_8(&sr_led, 0b00000010);
-		HAL_Delay(100);
-		shift_reg_write_8(&sr_led, 0b00000001);
-		HAL_Delay(100);
-	}
+
+
+
+
 	return 0;
 
 }

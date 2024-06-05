@@ -208,7 +208,7 @@ int sdcard_write_packet2(sdcard_task_t * task, const pack2_t * packet)
 			(int)packet->flag, packet->num, packet->time_ms,
 			packet->bmp_temp, packet->bmp_press,
 			packet->fhotorez, packet->ds_temp,
-			packet->status, (int)packet->find,
+			packet->state_now, (int)packet->find,
 			packet->crc
 	);
 	if (to_write < 0)
