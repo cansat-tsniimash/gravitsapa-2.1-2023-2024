@@ -112,5 +112,10 @@ void draw() //FIXME draw_arrow() - last name
 	ssd1306_SetCursor(0, 9);
 	ssd1306_WriteStringVertical(distance_text_buffer, Font_6x8, White);
 
+	//if (gps_lon > coord_base_lon)
+	//{
+	//	angle = 360 - angle;
+	//}
+
 
 }

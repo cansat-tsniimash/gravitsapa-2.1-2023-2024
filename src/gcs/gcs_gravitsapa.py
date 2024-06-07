@@ -82,7 +82,7 @@ if __name__ == '__main__':
                 if data[0] == 0x10:
                     continue
                     print("==== PACKET ORIENT ====")#ОК
-                    unpack_data = struct.unpack("<BHIhhh", data[:13])
+                    unpack_data = struct.unpack("<BHI3h", data[:13])
                     print(unpack_data)
                     print ("Time:", unpack_data[2])
                     print ("Number:", unpack_data[1])
@@ -94,7 +94,7 @@ if __name__ == '__main__':
              
                 elif data[0] == 0x01:
                     print("==== STATE && FIND ====")
-                    unpack_data = struct.unpack("<BHIHIHhHb", data[:20])
+                    unpack_data = struct.unpack("<BHIhIHhHB", data[:20])
                     print ("Time:", unpack_data[2])
                     print ("Number:", unpack_data[1])
                     print ("Temperature BMP:", unpack_data[3] / 100)
@@ -107,7 +107,7 @@ if __name__ == '__main__':
 
                 elif data[0] == 0x20:
                     #continue
-                    unpack_data = struct.unpack("<BHIIIfffb", data[:24])
+                    unpack_data = struct.unpack("<BH3I3fb", data[:22])
                     print("==== GPS ====")
 
                     print ("Time:", unpack_data[2])

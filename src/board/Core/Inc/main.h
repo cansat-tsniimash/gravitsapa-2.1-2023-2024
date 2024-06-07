@@ -73,8 +73,6 @@ void Error_Handler(void);
 #define SR_RST_GPIO_Port GPIOB
 #define RED_BUTTON_Pin GPIO_PIN_1
 #define RED_BUTTON_GPIO_Port GPIOB
-#define photo_Pin GPIO_PIN_2
-#define photo_GPIO_Port GPIOB
 #define GPS_TX_Pin GPIO_PIN_6
 #define GPS_TX_GPIO_Port GPIOC
 #define GPS_RX_Pin GPIO_PIN_7
