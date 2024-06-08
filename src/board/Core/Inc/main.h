@@ -79,6 +79,8 @@ void Error_Handler(void);
 #define GPS_RX_GPIO_Port GPIOC
 #define diod_Pin GPIO_PIN_4
 #define diod_GPIO_Port GPIOB
+#define PHOTO_Pin GPIO_PIN_8
+#define PHOTO_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
