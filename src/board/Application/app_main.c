@@ -410,7 +410,7 @@ int app_main(void)
 		gps_work();
 		sdcard_task_work(&sdcard);
 		//Экран
-
+		ssd1306_Init();
 		ssd1306_Fill(Black);
 		ssd1306_SetCursor(0, 19);
 		draw();
@@ -425,30 +425,6 @@ int app_main(void)
 			ssd1306_Fill(White);
 			ssd1306_UpdateScreen();
 		}
-//		if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2) == GPIO_PIN_RESET)
-//		{
-//
-//			ssd1306_Fill(White);
-//			ssd1306_UpdateScreen();
-//		}
-//		else
-//		{
-//
-//			ssd1306_Fill(Black);
-//			ssd1306_UpdateScreen();
-//		}
-		//if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_RESET){
-		//	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);
-		//}
-		//else
-		//	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
-		if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2) == GPIO_PIN_RESET)
-					{
-						//ssd1306_Init();
-						ssd1306_Fill(White);
-						ssd1306_UpdateScreen();
-						//state_now = STATE_AFTER_ROCKET;
-					}
 
 		timer += 1;
 		if (timer == 1)
@@ -470,30 +446,30 @@ int app_main(void)
 		if (timer >= 8)
 			timer = 0;
 	}
-	switch (state_now)
+	switch (status_pack.state_now)
 	{
 		case STATE_READY:
-			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2) == GPIO_PIN_RESET)
+			if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET)
 			{
-				state_now = STATE_READY;
+				status_pack.state_now = STATE_READY;
 			}
 			break;
 //-------------------------------------------------------1
 
 		case STATE_IN_ROCKET:
-			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2) == GPIO_PIN_RESET)
+			if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET)
 			{
 				//ssd1306_Init();
 				ssd1306_Fill(White);
 				ssd1306_UpdateScreen();
-				state_now = STATE_AFTER_ROCKET;
+				status_pack.state_now = STATE_AFTER_ROCKET;
 			}
 			break;
 //-------------------------------------------------------4
 		case STATE_AFTER_ROCKET:
-			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2) == GPIO_PIN_RESET)
+			if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET)
 			{
-				state_now = STATE_FIND;
+				status_pack.state_now = STATE_FIND;
 			}
 			break;
 //-------------------------------------------------------8
@@ -503,7 +479,7 @@ int app_main(void)
 			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_RESET)
 			{
 				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
-				state_now = STATE_FIND;
+				status_pack.state_now = STATE_FIND;
 				status_pack.find = 1;
 			}
 			break;
