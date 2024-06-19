@@ -28,11 +28,14 @@
 #define PACK3_PERIOD 10
 #define PACK3_RF_DELIMITER 1
 
+#define PACK_ORG_PERIOD 999
+#define PACK_ORG_RF_DELIMITER 1
 
 #define GPS_PACKET 50
-#define ORIENT_PACKE 5
+#define ORIENT_PACKET 5
 #define TASK2_PERIOD 40
 #define TASK3_PERIOD 5
+#define PACK_ORG 999
 
 extern UART_HandleTypeDef huart6;
 extern UART_HandleTypeDef huart1;
@@ -70,6 +73,7 @@ int _write(int file, char *ptr, int len)
 
 
 //crc count
+
 uint16_t Crc16(uint8_t *buf, uint16_t len) {
 uint16_t crc = 0xFFFF;
 	while (len--) {
@@ -98,20 +102,20 @@ typedef enum
 
 int app_main(void)
 {
-	state_t state_now;
+	state_t state_now; //shutup
 	state_now = STATE_READY;
 
 	uint64_t timer = 0;
 	uint64_t timer_buz = 0;
 	extern SPI_HandleTypeDef hspi1;
-	int ds18_error = 0;
+	int ds18_error = 0; //shutup
 	int bme_error = 0;
 	int lsm_error = 0;
 	int lis_error = 0;
 	int gps_error = 0;
-	int sd_error = 0;
+	int sd_error = 0; //shutup
 
-	char buffer_time [5];
+	char buffer_time [5]; //shutup0
 
 	ssd1306_Init();
 	ssd1306_Reset();
@@ -272,9 +276,11 @@ int app_main(void)
 	pack1_t gps_pack = { .num = 0, .flag = 0x20 };
 	pack2_t status_pack = { .num = 0, .flag = 0x01 };
 	pack3_t orient_pack = { .num = 0, .flag = 0x30 };
+	pack_org_t org_pack = { .flag = 0x07};
 	uint32_t pack1_deadline = HAL_GetTick() + PACK1_PERIOD;
 	uint32_t pack2_deadline = HAL_GetTick() + PACK2_PERIOD;
 	uint32_t pack3_deadline = HAL_GetTick() + PACK3_PERIOD;
+	uint32_t pack_org_deadline = HAL_GetTick()+ PACK_ORG_PERIOD;
 
 	ssd1306_Init();
 	while(1)
@@ -393,6 +399,15 @@ int app_main(void)
 				nrf24_fifo_write(&radio.radio, (uint8_t *)&orient_pack, sizeof(orient_pack), false);
 		}
 
+		if (HAL_GetTick() >= pack_org_deadline)
+		{
+			pack_org_deadline = HAL_GetTick() + PACK_ORG_PERIOD;
+
+			org_pack.crc = Crc16((uint8_t *)&org_pack, sizeof(org_pack) - 2)/*fixme*/;
+
+			nrf24_fifo_write(&radio.radio, (uint8_t *)&org_pack, sizeof(org_pack), false);
+
+		}
 		// Чистим прерывания для RF24
 		int nrf_irq;
 		nrf24_irq_get(&radio.radio, &nrf_irq);

@@ -79,8 +79,8 @@ if __name__ == '__main__':
             f.flush()
 
             try:
-                if data[0] == 0x10:
-                    continue
+                if data[0] == 0x30:
+                    
                     print("==== PACKET ORIENT ====")#ОК
                     unpack_data = struct.unpack("<BHI3h", data[:13])
                     print(unpack_data)
@@ -89,12 +89,12 @@ if __name__ == '__main__':
 
                     print ("Acceler:", [x / 1000 for x in unpack_data[3:6]])
                     print ("Gyro:", [x / 1000 for x in unpack_data[6:9]])
-                    print ("Mag:", [x / 1000 for x in unpack_data[9:12]])
+                    print ("Mag:", [x /1000 for x in unpack_data[9:12]])
 
              
                 elif data[0] == 0x01:
                     print("==== STATE && FIND ====")
-                    unpack_data = struct.unpack("<BHIhIHhHB", data[:20])
+                    unpack_data = struct.unpack("<BHIHIHhHb", data[:20])
                     print ("Time:", unpack_data[2])
                     print ("Number:", unpack_data[1])
                     print ("Temperature BMP:", unpack_data[3] / 100)
@@ -107,7 +107,7 @@ if __name__ == '__main__':
 
                 elif data[0] == 0x20:
                     #continue
-                    unpack_data = struct.unpack("<BH3I3fb", data[:22])
+                    unpack_data = struct.unpack("<BH3I3fb", data[:28])
                     print("==== GPS ====")
 
                     print ("Time:", unpack_data[2])
@@ -118,6 +118,14 @@ if __name__ == '__main__':
                     print ("Latitude:", unpack_data[5])
                     print ("Longtitude:", unpack_data[6])
                     print ("FIX GPS:", unpack_data[7])
+                elif data[0] == 0x07:
+                    print("==== org packet ====")
+                    unpack_data = struct.unpack("BHIhI3hb", data[:23])
+                    print ("ID:", unpack_data[2])
+                    print ("time:", unpack_data[3])
+                    print ("temp:", unpack_data[4])
+                    print ("press:", unpack_data[5])
+                    print ("accl:", [x /1000 for x in unpack_data[6:9]])
 
                 else:
                     print('got data %s' % data)

@@ -12,6 +12,16 @@
 
 #pragma pack(push,1) //<-------
 //структурки пакетиков
+typedef struct{
+	uint8_t flag;
+	uint16_t id;
+	uint32_t gps_time_s;
+	int16_t bmp_temp;
+	uint32_t bmp_press;
+	int16_t accl[3];
+	uint16_t crc;
+}pack_org_t;
+
 // 13 byte
 typedef struct{
 	uint8_t flag;
