@@ -19,23 +19,23 @@
 
 #define DS18_PERIOD 800
 
-#define PACK1_PERIOD 10
+#define PACK1_PERIOD 950
 #define PACK1_RF_DELIMITER 1
 
-#define PACK2_PERIOD 10
+#define PACK2_PERIOD 220
 #define PACK2_RF_DELIMITER 1
 
-#define PACK3_PERIOD 10
+#define PACK3_PERIOD 220
 #define PACK3_RF_DELIMITER 1
 
-#define PACK_ORG_PERIOD 999
+#define PACK_ORG_PERIOD 950
 #define PACK_ORG_RF_DELIMITER 1
 
 #define GPS_PACKET 50
 #define ORIENT_PACKET 5
 #define TASK2_PERIOD 40
 #define TASK3_PERIOD 5
-#define PACK_ORG 999
+#define PACK_ORG 50
 
 extern UART_HandleTypeDef huart6;
 extern UART_HandleTypeDef huart1;
@@ -99,9 +99,12 @@ typedef enum
 } state_t;
 
 
+#define ADJUST_DEADLINE(deadline_var, now) if (now >= deadline_var) deadline_var = now + 10;
+
 
 int app_main(void)
 {
+
 	state_t state_now; //shutup
 	state_now = STATE_READY;
 
@@ -276,11 +279,11 @@ int app_main(void)
 	pack1_t gps_pack = { .num = 0, .flag = 0x20 };
 	pack2_t status_pack = { .num = 0, .flag = 0x01 };
 	pack3_t orient_pack = { .num = 0, .flag = 0x30 };
-	pack_org_t org_pack = { .flag = 0x07};
+	pack_org_t org_pack = { .flag = 0xABBA, .id = 0xAF};
 	uint32_t pack1_deadline = HAL_GetTick() + PACK1_PERIOD;
 	uint32_t pack2_deadline = HAL_GetTick() + PACK2_PERIOD;
 	uint32_t pack3_deadline = HAL_GetTick() + PACK3_PERIOD;
-	uint32_t pack_org_deadline = HAL_GetTick()+ PACK_ORG_PERIOD;
+	uint32_t pack_org_deadline = HAL_GetTick() + PACK_ORG_PERIOD;
 
 	ssd1306_Init();
 	while(1)
@@ -299,8 +302,9 @@ int app_main(void)
 		{
 			acc_g[i] = lsm6ds3_from_fs16g_to_mg(acc_raw[i]);
 			gyro_dps[i] = lsm6ds3_from_fs2000dps_to_mdps(gyro_raw[i]);
-			orient_pack.accl[i] = acc_g[i] / 1000.0;
-			orient_pack.gyro[i] = gyro_dps[i] / 1000.0;
+			orient_pack.accl[i] = acc_raw[i];
+			orient_pack.gyro[i] = gyro_raw[i];
+			org_pack.accl[i] = acc_g[i];
 		}
 
 		// Чтение данные из lis3mdl
@@ -311,7 +315,7 @@ int app_main(void)
 		for (int i = 0; i < 3; i++)
 		{
 			mag[i] = lis3mdl_from_fs16_to_gauss(mag_raw[i]);
-			orient_pack.mag[i] = mag[i] / 1000.0;
+			orient_pack.mag[i] = mag_raw[i];
 		};
 
 		// Опрос ds18
@@ -337,6 +341,8 @@ int app_main(void)
 		bme_error = bme280_get_sensor_data(BME280_ALL, &comp_data, &bme);
 		status_pack.bmp_temp = comp_data.temperature * 100;
 		status_pack.bmp_press = comp_data.pressure;
+		org_pack.bmp_press = comp_data.pressure;
+		org_pack.bmp_temp = comp_data.temperature * 100;
 
 		// Опрос фоторезистора
 		//status_pack.fhotorez = lux;
@@ -360,6 +366,12 @@ int app_main(void)
 		gps_pack.fix = gps_fix;
 		gps_error = gps_fix != 0;
 
+		org_pack.time = HAL_GetTick();
+
+		int nrf_irq;
+		nrf24_irq_get(&radio.radio, &nrf_irq);
+		nrf24_irq_clear(&radio.radio, nrf_irq);
+
 		if (HAL_GetTick() >= pack1_deadline)
 		{
 			pack1_deadline = HAL_GetTick() + PACK1_PERIOD;
@@ -370,7 +382,12 @@ int app_main(void)
 			sd_error = sdcard_write_packet1(&sdcard, &gps_pack);
 
 			if (gps_pack.num % PACK1_RF_DELIMITER == 0)
+			{
+				ADJUST_DEADLINE(pack2_deadline, HAL_GetTick());
+				ADJUST_DEADLINE(pack3_deadline, HAL_GetTick());
+				ADJUST_DEADLINE(pack_org_deadline, HAL_GetTick());
 				nrf24_fifo_write(&radio.radio, (uint8_t*)&gps_pack, sizeof(gps_pack), false);
+			}
 		}
 
 		if (HAL_GetTick() >= pack2_deadline)
@@ -383,7 +400,12 @@ int app_main(void)
 			sd_error = sdcard_write_packet2(&sdcard, &status_pack);
 
 			if (status_pack.num % PACK2_RF_DELIMITER == 0)
+			{
+				ADJUST_DEADLINE(pack1_deadline, HAL_GetTick());
+				ADJUST_DEADLINE(pack3_deadline, HAL_GetTick());
+				ADJUST_DEADLINE(pack_org_deadline, HAL_GetTick());
 				nrf24_fifo_write(&radio.radio, (uint8_t *)&status_pack, sizeof(status_pack), false);
+			}
 		}
 
 		if (HAL_GetTick() >= pack3_deadline)
@@ -396,22 +418,25 @@ int app_main(void)
 			sd_error = sdcard_write_packet3(&sdcard, &orient_pack);
 
 			if (orient_pack.num % PACK3_RF_DELIMITER == 0)
+			{
+				ADJUST_DEADLINE(pack1_deadline, HAL_GetTick());
+				ADJUST_DEADLINE(pack2_deadline, HAL_GetTick());
+				ADJUST_DEADLINE(pack_org_deadline, HAL_GetTick());
 				nrf24_fifo_write(&radio.radio, (uint8_t *)&orient_pack, sizeof(orient_pack), false);
+			}
 		}
 
 		if (HAL_GetTick() >= pack_org_deadline)
 		{
 			pack_org_deadline = HAL_GetTick() + PACK_ORG_PERIOD;
-
 			org_pack.crc = Crc16((uint8_t *)&org_pack, sizeof(org_pack) - 2)/*fixme*/;
 
-			nrf24_fifo_write(&radio.radio, (uint8_t *)&org_pack, sizeof(org_pack), false);
+			ADJUST_DEADLINE(pack1_deadline, HAL_GetTick());
+			ADJUST_DEADLINE(pack2_deadline, HAL_GetTick());
+			ADJUST_DEADLINE(pack3_deadline, HAL_GetTick());
 
+			nrf24_fifo_write(&radio.radio, (uint8_t *)&org_pack, sizeof(org_pack), false);
 		}
-		// Чистим прерывания для RF24
-		int nrf_irq;
-		nrf24_irq_get(&radio.radio, &nrf_irq);
-		nrf24_irq_clear(&radio.radio, nrf_irq);
 
 		// Зажигаем разные лампочки по статусу аппаратуры
 		if (bme_error == 0)
