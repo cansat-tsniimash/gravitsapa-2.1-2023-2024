@@ -27,9 +27,9 @@ typedef struct{
 	uint8_t flag;
 	uint16_t num;
 	uint32_t time_ms;
-	float accl[3];
-	float gyro[3];
-	float mag[3];
+	int16_t accl[3];
+	int16_t gyro[3];
+	int16_t mag[3];
 	uint16_t crc;
 }pack3_t;
 

@@ -84,6 +84,20 @@ uint16_t crc = 0xFFFF;
 	return crc;
 }
 
+uint8_t CrcXOR(uint8_t *buf, uint16_t len) {
+	if (0 == len)
+		return 0;
+
+	uint8_t crc = buf[0];
+	buf++;
+	len--;
+
+	while (len--)
+		crc ^= * buf++;
+
+	return crc;
+}
+
 float coord_base_lat = 0;
 float coord_base_lon = 0;
 float gps_lon, gps_lat, gps_alt;
@@ -118,7 +132,7 @@ int app_main(void)
 	int gps_error = 0;
 	int sd_error = 0; //shutup
 
-	char buffer_time [5]; //shutup0
+	char buffer_time [5]; //shutup
 
 	ssd1306_Init();
 	ssd1306_Reset();
@@ -296,25 +310,23 @@ int app_main(void)
 		lsm6ds3_angular_rate_raw_get(&lsm_ctx, gyro_raw);
 
 		// Пересчет из попугаев в человеческие величины
-		float acc_g[3];
-		float gyro_dps[3];
 		for (int i = 0; i < 3; i++)
 		{
-			acc_g[i] = lsm6ds3_from_fs16g_to_mg(acc_raw[i]);
-			gyro_dps[i] = lsm6ds3_from_fs2000dps_to_mdps(gyro_raw[i]);
+
 			orient_pack.accl[i] = acc_raw[i];
 			orient_pack.gyro[i] = gyro_raw[i];
-			org_pack.accl[i] = acc_g[i];
+			org_pack.accl[i] = acc_raw[i];
+
+
 		}
 
 		// Чтение данные из lis3mdl
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 		int16_t mag_raw[3];
 		lis3mdl_magnetic_raw_get(&lis_ctx, mag_raw);
-		float mag[3];
+
 		for (int i = 0; i < 3; i++)
 		{
-			mag[i] = lis3mdl_from_fs16_to_gauss(mag_raw[i]);
 			orient_pack.mag[i] = mag_raw[i];
 		};
 
@@ -332,7 +344,7 @@ int app_main(void)
 			ds_deadline = HAL_GetTick() + DS18_PERIOD;
 
 			ds18_error = crc_ok_ds ? 0 : 142;
-			status_pack.ds_temp = ((float)temp_ds * 10) / 16;
+			status_pack.ds_temp = ((float)temp_ds) / 16.0 * 10;
 		}
 
 		// Опрос bme280
@@ -342,7 +354,7 @@ int app_main(void)
 		status_pack.bmp_temp = comp_data.temperature * 100;
 		status_pack.bmp_press = comp_data.pressure;
 		org_pack.bmp_press = comp_data.pressure;
-		org_pack.bmp_temp = comp_data.temperature * 100;
+		org_pack.bmp_temp = comp_data.temperature  * 100;
 
 		// Опрос фоторезистора
 		//status_pack.fhotorez = lux;
@@ -412,10 +424,11 @@ int app_main(void)
 		{
 			pack3_deadline = HAL_GetTick() + PACK3_PERIOD;
 
-			orient_pack.time_ms = HAL_GetTick();
+			orient_pack.time_ms/*, orient_pack_sd.time_ms*/ = HAL_GetTick();
 			orient_pack.num += 1;
-			orient_pack.crc = Crc16((uint8_t *)&orient_pack, sizeof(orient_pack) - 2);// <<------pack
-			sd_error = sdcard_write_packet3(&sdcard, &orient_pack);
+			orient_pack.crc = Crc16((uint8_t *)&orient_pack, sizeof(orient_pack) - 2);
+			//orient_pack_sd.crc = Crc16((uint8_t *)&orient_pack, sizeof(orient_pack) - 2);// <<------pack
+			sd_error = sdcard_write_packet3(&sdcard, &orient_pack );
 
 			if (orient_pack.num % PACK3_RF_DELIMITER == 0)
 			{
@@ -429,7 +442,7 @@ int app_main(void)
 		if (HAL_GetTick() >= pack_org_deadline)
 		{
 			pack_org_deadline = HAL_GetTick() + PACK_ORG_PERIOD;
-			org_pack.crc = Crc16((uint8_t *)&org_pack, sizeof(org_pack) - 2)/*fixme*/;
+			org_pack.crc = CrcXOR((uint8_t *)&org_pack, sizeof(org_pack) - 2)/*fixme*/;
 
 			ADJUST_DEADLINE(pack1_deadline, HAL_GetTick());
 			ADJUST_DEADLINE(pack2_deadline, HAL_GetTick());
@@ -499,6 +512,7 @@ int app_main(void)
 			{
 				status_pack.state_now = STATE_IN_ROCKET;
 				status_pack.find = 0;
+				status_pack.fhotorez = 1;
 			}
 			break;
 //-------------------------------------------------------1
@@ -511,6 +525,7 @@ int app_main(void)
 				ssd1306_UpdateScreen();
 				status_pack.state_now = STATE_AFTER_ROCKET;
 				status_pack.find = 0;
+				status_pack.fhotorez = 0;
 			}
 			break;
 //-------------------------------------------------------4
@@ -519,6 +534,7 @@ int app_main(void)
 			{
 				status_pack.state_now = STATE_FIND;
 				status_pack.find = 0;
+				status_pack.fhotorez = 1;
 			}
 			break;
 //-------------------------------------------------------8
