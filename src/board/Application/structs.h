@@ -57,6 +57,9 @@ typedef struct{
 	float lat;
 	float lon;
 	float alt;
+	float angle;
+	float lat_base;
+	float lon_base;
 	int8_t fix;
 	uint16_t crc;
 }pack1_t;

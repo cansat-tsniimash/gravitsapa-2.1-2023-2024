@@ -71,7 +71,7 @@ static int sdcard_task_remount(sdcard_task_t * task)
 	rc = open_and_make_header(
 			&task->file1,
 			"packet1_%d.csv",
-			"flag; num; time_ms; gps_time_s; gps_time_us; lat; lon; alt; fix; crc\n"
+			"flag; num; time_ms; gps_time_s; gps_time_us; lat; lon; alt; angle; lat_base; lon_base; fix; crc\n"
 	);
 	if (rc != FR_OK)
 		return rc;
@@ -161,13 +161,13 @@ int sdcard_write_packet1(sdcard_task_t * task, const pack1_t * packet)
 			buffer, sizeof(buffer),
 			"%d;%"PRIu16";%"PRIu32";"
 			"%"PRIu32";%"PRIu32";"
-			"%f;%f;%f;%d;"
+			"%f;%f;%f;%f;%f;%f;%d;"
 			"%"PRIu16";"
 			"\n",
 			(int)packet->flag, packet->num, packet->time_ms,
 			packet->gps_time_s, packet->gps_time_us,
-			packet->lat, packet->lon, packet->alt, (int)packet->fix,
-			packet->crc
+			packet->lat, packet->lon, packet->alt,
+		    packet->angle, packet->lat_base, packet->lon_base ,(int)packet->fix, packet->crc
 	);
 	if (to_write < 0)
 		return to_write;

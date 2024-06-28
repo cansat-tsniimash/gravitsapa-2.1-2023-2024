@@ -98,6 +98,7 @@ uint8_t CrcXOR(uint8_t *buf, uint16_t len) {
 	return crc;
 }
 
+extern double angle_deg;
 float coord_base_lat = 0;
 float coord_base_lon = 0;
 float gps_lon, gps_lat, gps_alt;
@@ -366,6 +367,12 @@ int app_main(void)
 		uint32_t gps_time_us = 0;
 		gps_get_coords(&gps_coord_cookie, &gps_lat, &gps_lon, &gps_alt, &gps_fix);
 		gps_get_time(&gps_time_cookie, &gps_time_s, &gps_time_us);
+		//gps_lat = 55.908000999999998726;
+		//gps_lon = 37.804484999999999673;
+		//gps_alt = 147.30000300000000379;
+		//coord_base_lat = 55.9095310000000012;
+		//coord_base_lon = 37.805790000000001783;
+
 		//uint64_t gps_time_now = gps_time_us;
 		//gps_get_gga_time(&gps_time_now);
 
@@ -376,6 +383,7 @@ int app_main(void)
 		gps_pack.gps_time_s = gps_time_s;
 		gps_pack.gps_time_us = gps_time_us;
 		gps_pack.fix = gps_fix;
+		gps_pack.angle = angle_deg;
 		gps_error = gps_fix != 0;
 
 		org_pack.time = HAL_GetTick();
@@ -476,11 +484,13 @@ int app_main(void)
 		{
 			coord_base_lat = gps_lat;
 			coord_base_lon = gps_lon;
+
 			//ssd1306_Init();
 			ssd1306_Fill(White);
 			ssd1306_UpdateScreen();
 		}
-
+		gps_pack.lat_base = coord_base_lat;
+		gps_pack.lon_base = coord_base_lon;
 		timer += 1;
 		if (timer == 1)
 			shift_reg_write_8(&sr_led, 0b10000000);

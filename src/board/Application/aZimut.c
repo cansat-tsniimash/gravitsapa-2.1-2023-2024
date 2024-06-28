@@ -10,7 +10,6 @@
 	#include "ssd1306/ssd1306.h"
 	#define RAD_TO_DEG(angle) ((angle)*180.0/M_PI)
 	#define M_PI 3.14159265358979323846	/* pi */
-	extern double angle;
 
 	//extern double gps_lat;
 	//extern double gps_lon;
@@ -35,8 +34,8 @@
 		double sina = sqrt(1 - cosa * cosa);
 		double cosB = (cos(b) - cosa * cos(c)) / (sina * sin(c));
 		double B = acos(cosB);
-		const double angle = RAD_TO_DEG(B);
+		const double angle_deg = RAD_TO_DEG(B);
+		//const double angle_rad = B;
 
-		return angle;
+		return angle_deg;
 	}
-

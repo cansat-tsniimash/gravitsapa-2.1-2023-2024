@@ -15,6 +15,7 @@ extern float coord_base_lat;
 extern float coord_base_lon;
 extern float gps_lon, gps_lat, gps_alt;
 extern float north_lat, north_lon;
+double angle_deg;
 
 void matrix_p_vector(const float m[2][2], const float v[2], float rv[2])
 {
@@ -47,7 +48,8 @@ void vector_add(float v1[2], const float v2[2])
 
 void draw() //FIXME draw_arrow() - last name
 {
-	const double angle = get_azimuth_deg(coord_base_lon, coord_base_lat, gps_lon, gps_lat);
+	angle_deg = get_azimuth_deg(coord_base_lon, coord_base_lat, gps_lon, gps_lat);
+	const double angle_rad = angle_deg * M_PI / 180.0;
 	const float line_size = 50;
 	const float line_begin_[2] = {-line_size/2, 0};
 	const float line_end_[2] = {line_size/2, 0};
@@ -58,10 +60,10 @@ void draw() //FIXME draw_arrow() - last name
 	float arrow_left[2];
 	float arrow_right[2];
 
-	vector_rot3(line_begin_, angle, line_begin);
-	vector_rot3(line_end_, angle, line_end);
-	vector_rot3(arrow_left_, angle, arrow_left);
-	vector_rot3(arrow_right_, angle, arrow_right);
+	vector_rot3(line_begin_, angle_rad, line_begin);
+	vector_rot3(line_end_, angle_rad, line_end);
+	vector_rot3(arrow_left_, angle_rad, arrow_left);
+	vector_rot3(arrow_right_, angle_rad, arrow_right);
 
 	const float offset[2] = {64, 32};
 	vector_add(line_begin, offset);
