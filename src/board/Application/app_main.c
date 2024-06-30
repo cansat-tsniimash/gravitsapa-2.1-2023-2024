@@ -122,6 +122,8 @@ int app_main(void)
 
 	state_t state_now; //shutup
 	state_now = STATE_READY;
+	uint32_t state_ready_deadline = HAL_GetTick() + 10000;
+	uint32_t state_find_deadline = 0;
 
 	uint64_t timer = 0;
 	uint64_t timer_buz = 0;
@@ -292,6 +294,7 @@ int app_main(void)
 
 	//Пакеты
 	pack1_t gps_pack = { .num = 0, .flag = 0x20 };
+	pack1sd_t gps_sd_pack = {.num = 0, .flag = 0x07};
 	pack2_t status_pack = { .num = 0, .flag = 0x01 };
 	pack3_t orient_pack = { .num = 0, .flag = 0x30 };
 	pack_org_t org_pack = { .flag = 0xABBA, .id = 0xAF};
@@ -355,11 +358,8 @@ int app_main(void)
 		status_pack.bmp_temp = comp_data.temperature * 100;
 		status_pack.bmp_press = comp_data.pressure;
 		org_pack.bmp_press = comp_data.pressure;
-		org_pack.bmp_temp = comp_data.temperature  * 100;
-
-		// Опрос фоторезистора
-		//status_pack.fhotorez = lux;
-
+		org_pack.bme_temp = comp_data.temperature;
+		//uint32_t press_on_gnd = comp_data.pressure;
 		// Опрос gps
 		// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 		int gps_fix;
@@ -367,23 +367,29 @@ int app_main(void)
 		uint32_t gps_time_us = 0;
 		gps_get_coords(&gps_coord_cookie, &gps_lat, &gps_lon, &gps_alt, &gps_fix);
 		gps_get_time(&gps_time_cookie, &gps_time_s, &gps_time_us);
-		//gps_lat = 55.908000999999998726;
-		//gps_lon = 37.804484999999999673;
-		//gps_alt = 147.30000300000000379;
-		//coord_base_lat = 55.9095310000000012;
-		//coord_base_lon = 37.805790000000001783;
 
-		//uint64_t gps_time_now = gps_time_us;
-		//gps_get_gga_time(&gps_time_now);
-
-		//printf(gps_time_us);
 		gps_pack.lat = gps_lat;
 		gps_pack.lon = gps_lon;
 		gps_pack.alt = gps_alt;
+
+		gps_sd_pack.lat = gps_lat;
+		gps_sd_pack.lon = gps_lon;
+		gps_sd_pack.alt = gps_alt;
+
 		gps_pack.gps_time_s = gps_time_s;
 		gps_pack.gps_time_us = gps_time_us;
+
+		gps_sd_pack.gps_time_s = gps_time_s;
+		gps_sd_pack.gps_time_us = gps_time_us;
+
+		gps_sd_pack.lat_base = coord_base_lat;
+		gps_sd_pack.lon_base = coord_base_lon;
+
 		gps_pack.fix = gps_fix;
-		gps_pack.angle = angle_deg;
+
+		gps_sd_pack.fix = gps_fix;
+		gps_sd_pack.angle = angle_deg;
+
 		gps_error = gps_fix != 0;
 
 		org_pack.time = HAL_GetTick();
@@ -397,9 +403,14 @@ int app_main(void)
 			pack1_deadline = HAL_GetTick() + PACK1_PERIOD;
 
 			gps_pack.time_ms = HAL_GetTick();
+			gps_sd_pack.time_ms = HAL_GetTick();
+
 			gps_pack.num += 1;
+			gps_sd_pack.num += 1;
+
 			gps_pack.crc = Crc16((uint8_t *)&gps_pack, sizeof(gps_pack) - 2);
-			sd_error = sdcard_write_packet1(&sdcard, &gps_pack);
+			gps_sd_pack.crc = Crc16((uint8_t *)&gps_sd_pack, sizeof(gps_sd_pack) - 2);
+			sd_error = sdcard_write_packet1(&sdcard, &gps_sd_pack);
 
 			if (gps_pack.num % PACK1_RF_DELIMITER == 0)
 			{
@@ -450,7 +461,7 @@ int app_main(void)
 		if (HAL_GetTick() >= pack_org_deadline)
 		{
 			pack_org_deadline = HAL_GetTick() + PACK_ORG_PERIOD;
-			org_pack.crc = CrcXOR((uint8_t *)&org_pack, sizeof(org_pack) - 2)/*fixme*/;
+			org_pack.crc = CrcXOR((uint8_t *)&org_pack, sizeof(org_pack) - 2);
 
 			ADJUST_DEADLINE(pack1_deadline, HAL_GetTick());
 			ADJUST_DEADLINE(pack2_deadline, HAL_GetTick());
@@ -479,6 +490,7 @@ int app_main(void)
 		ssd1306_UpdateScreen();
 
 
+
 		//КНОПКА RST
 		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET)
 		{
@@ -489,8 +501,6 @@ int app_main(void)
 			ssd1306_Fill(White);
 			ssd1306_UpdateScreen();
 		}
-		gps_pack.lat_base = coord_base_lat;
-		gps_pack.lon_base = coord_base_lon;
 		timer += 1;
 		if (timer == 1)
 			shift_reg_write_8(&sr_led, 0b10000000);
@@ -518,43 +528,41 @@ int app_main(void)
 	switch (status_pack.state_now)
 	{
 		case STATE_READY:
-			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_RESET)
+			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_SET /*&& HAL_GetTick() > 10000*/)
 			{
-				status_pack.state_now = STATE_IN_ROCKET;
-				status_pack.find = 0;
-				status_pack.fhotorez = 1;
+				if (HAL_GetTick() > state_ready_deadline)
+				{
+					status_pack.state_now = STATE_IN_ROCKET;
+					status_pack.find = 0;
+					status_pack.fhotorez = 0;
+				}
+				else{status_pack.state_now = STATE_READY;}
 			}
 			break;
 //-------------------------------------------------------1
 
 		case STATE_IN_ROCKET:
-			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_SET)
-			{
-				//ssd1306_Init();
-				ssd1306_Fill(White);
-				ssd1306_UpdateScreen();
-				status_pack.state_now = STATE_AFTER_ROCKET;
-				status_pack.find = 0;
-				status_pack.fhotorez = 0;
-			}
-			break;
-//-------------------------------------------------------4
-		case STATE_AFTER_ROCKET:
 			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_RESET)
 			{
 				status_pack.state_now = STATE_FIND;
-				status_pack.find = 0;
-				status_pack.fhotorez = 1;
+				state_find_deadline = HAL_GetTick() + 25000;
+				status_pack.find = 1;
+				status_pack.fhotorez = 0;
+
 			}
 			break;
+//-------------------------------------------------------4
+
 //-------------------------------------------------------8
 		case STATE_FIND:
-
-			if (timer == 4)
-				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
-			else if (timer_buz == 18)
-				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);
-			status_pack.find = 0;
+			if (HAL_GetTick() >= state_find_deadline)
+			{
+				if (timer == 4){
+					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);}
+				else if (timer_buz == 18){
+					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_SET);}
+				status_pack.find = 0;
+			}
 			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_RESET)
 			{
 				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, GPIO_PIN_RESET);
@@ -562,12 +570,11 @@ int app_main(void)
 				status_pack.find = 1;
 			}
 			break;
+
 //-------------------------------------------------------8
 		case STATE_AFTER_FIND:
-		{
 			status_pack.state_now = STATE_AFTER_FIND;
 			status_pack.find = 1;
-		}
 			break;
 	}
 }

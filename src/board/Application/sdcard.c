@@ -150,7 +150,7 @@ int sdcard_task_work(sdcard_task_t * task)
 
 
 
-int sdcard_write_packet1(sdcard_task_t * task, const pack1_t * packet)
+int sdcard_write_packet1(sdcard_task_t * task, const pack1sd_t * packet)
 {
 	if (task->needs_remount)
 		return 200;

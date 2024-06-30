@@ -16,7 +16,7 @@ typedef struct{
 	uint16_t flag;
 	uint16_t id;
 	uint32_t time;
-	int16_t bmp_temp;
+	int16_t bme_temp;
 	uint32_t bmp_press;
 	int16_t accl[3];
 	uint16_t crc;
@@ -60,6 +60,19 @@ typedef struct{
 	float angle;
 	float lat_base;
 	float lon_base;
+	int8_t fix;
+	uint16_t crc;
+}pack1sd_t;
+
+typedef struct{
+	uint8_t flag;
+	uint16_t num;
+	uint32_t time_ms;
+	uint32_t gps_time_s;
+	uint32_t gps_time_us;
+	float lat;
+	float lon;
+	float alt;
 	int8_t fix;
 	uint16_t crc;
 }pack1_t;

@@ -30,7 +30,7 @@ typedef struct sdcard_task_t
 int sdcard_task_init(sdcard_task_t * task);
 int sdcard_task_work(sdcard_task_t * task);
 
-int sdcard_write_packet1(sdcard_task_t * task, const pack1_t * packet);
+int sdcard_write_packet1(sdcard_task_t * task, const pack1sd_t * packet);
 int sdcard_write_packet2(sdcard_task_t * task, const pack2_t * packet);
 int sdcard_write_packet3(sdcard_task_t * task, const pack3_t * packet);
 

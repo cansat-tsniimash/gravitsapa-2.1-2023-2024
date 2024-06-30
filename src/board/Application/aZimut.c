@@ -9,7 +9,8 @@
 	#include "math.h"
 	#include "ssd1306/ssd1306.h"
 	#define RAD_TO_DEG(angle) ((angle)*180.0/M_PI)
-	#define M_PI 3.14159265358979323846	/* pi */
+
+	/* pi */
 
 	//extern double gps_lat;
 	//extern double gps_lon;
