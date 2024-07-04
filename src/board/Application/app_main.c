@@ -122,7 +122,7 @@ int app_main(void)
 
 	state_t state_now; //shutup
 	state_now = STATE_READY;
-	uint32_t state_ready_deadline = HAL_GetTick() + 10000;
+	uint32_t state_ready_deadline = HAL_GetTick() + 6000;
 	uint32_t state_find_deadline = 0;
 
 	uint64_t timer = 0;
@@ -297,7 +297,7 @@ int app_main(void)
 	pack1sd_t gps_sd_pack = {.num = 0, .flag = 0x07};
 	pack2_t status_pack = { .num = 0, .flag = 0x01 };
 	pack3_t orient_pack = { .num = 0, .flag = 0x30 };
-	pack_org_t org_pack = { .flag = 0xABBA, .id = 0xAF};
+	pack_org_t org_pack = { .flag = 0xABBA, .id = 0x2468};
 	uint32_t pack1_deadline = HAL_GetTick() + PACK1_PERIOD;
 	uint32_t pack2_deadline = HAL_GetTick() + PACK2_PERIOD;
 	uint32_t pack3_deadline = HAL_GetTick() + PACK3_PERIOD;
@@ -530,14 +530,16 @@ int app_main(void)
 		case STATE_READY:
 			if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8) == GPIO_PIN_SET /*&& HAL_GetTick() > 10000*/)
 			{
+
 				if (HAL_GetTick() > state_ready_deadline)
 				{
 					status_pack.state_now = STATE_IN_ROCKET;
 					status_pack.find = 0;
 					status_pack.fhotorez = 0;
 				}
-				else{status_pack.state_now = STATE_READY;}
+
 			}
+			else state_ready_deadline = HAL_GetTick() + 2000;
 			break;
 //-------------------------------------------------------1
 

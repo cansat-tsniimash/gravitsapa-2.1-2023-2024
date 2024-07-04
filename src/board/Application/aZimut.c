@@ -35,7 +35,11 @@
 		double sina = sqrt(1 - cosa * cosa);
 		double cosB = (cos(b) - cosa * cos(c)) / (sina * sin(c));
 		double B = acos(cosB);
-		const double angle_deg = RAD_TO_DEG(B);
+		double angle_deg = RAD_TO_DEG(B);
+		if (coord_base_lon < gps_lon)
+		{
+			angle_deg = 360 - angle_deg;
+		}
 		//const double angle_rad = B;
 
 		return angle_deg;
